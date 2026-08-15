@@ -7,21 +7,34 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace Crntly.StreamerBot.UI.Overlayer
 {
     public partial class OverlayerWindow : Window
     {
+        private readonly DispatcherTimer _saveDebounceTimer;
         private bool _allowClose;
         private bool _loadingItems;
+        private bool _loadingEditor;
+        private bool _syncingPositionControls;
 
         public OverlayerWindow()
         {
+            _loadingEditor = true;
+            _saveDebounceTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(500)
+            };
+            _saveDebounceTimer.Tick += AutosaveTimer_Tick;
+
             InitializeComponent();
             Items = new ObservableCollection<OverlayItem>();
             OverlayList.ItemsSource = Items;
             Closing += OnClosing;
             SetEditorEnabled(false);
+            _loadingEditor = false;
+            SetEditorStatus("Autosave", "Crntly.TextMuted");
         }
 
         public ObservableCollection<OverlayItem> Items { get; }
@@ -35,6 +48,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         public void SetItems(IEnumerable<OverlayItem> items)
         {
+            _saveDebounceTimer.Stop();
             _loadingItems = true;
             try
             {
@@ -47,7 +61,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 else
                 {
                     OverlayList.SelectedItem = null;
-                    ClearEditor();
+                    ClearEditorSafely();
                     SetEditorEnabled(false);
                 }
             }
@@ -69,6 +83,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         public void CloseForShutdown()
         {
+            _saveDebounceTimer.Stop();
             _allowClose = true;
             Close();
         }
@@ -118,6 +133,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             OverlayList.SelectedItem = item;
             NameBox.Focus();
             NameBox.SelectAll();
+            SetEditorStatus("Enter a URL to save", "Crntly.TextMuted");
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
@@ -130,6 +146,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
                     MessageBoxImage.Question) != MessageBoxResult.Yes)
                 return;
 
+            _saveDebounceTimer.Stop();
             var index = OverlayList.SelectedIndex;
             Items.Remove(item);
             OverlayDeleted?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
@@ -139,7 +156,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 OverlayList.SelectedIndex = Math.Min(index, Items.Count - 1);
             else
             {
-                ClearEditor();
+                ClearEditorSafely();
                 SetEditorEnabled(false);
             }
         }
@@ -150,6 +167,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             if (index <= 0)
                 return;
 
+            FlushPendingAutosave();
             Items.Move(index, index - 1);
             OverlayList.SelectedIndex = index - 1;
             RaiseOrderChanged();
@@ -161,6 +179,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             if (index < 0 || index >= Items.Count - 1)
                 return;
 
+            FlushPendingAutosave();
             Items.Move(index, index + 1);
             OverlayList.SelectedIndex = index + 1;
             RaiseOrderChanged();
@@ -168,22 +187,36 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         private void OverlayList_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (!_loadingItems)
+                FlushPendingAutosave();
+
             var item = OverlayList.SelectedItem as OverlayItem;
             if (item == null)
             {
-                ClearEditor();
+                ClearEditorSafely();
                 SetEditorEnabled(false);
                 return;
             }
 
-            SetEditorEnabled(true);
-            NameBox.Text = item.Name;
-            UrlBox.Text = item.Url;
-            WidthBox.Text = item.Width;
-            HeightBox.Text = item.Height;
-            LeftBox.Text = DisplayPosition(item.Left);
-            TopBox.Text = DisplayPosition(item.Top);
-            EnabledBox.IsChecked = item.Enabled;
+            _loadingEditor = true;
+            try
+            {
+                SetEditorEnabled(true);
+                NameBox.Text = item.Name;
+                UrlBox.Text = item.Url;
+                WidthBox.Text = item.Width;
+                HeightBox.Text = item.Height;
+                LeftBox.Text = DisplayPosition(item.Left);
+                TopBox.Text = DisplayPosition(item.Top);
+                EnabledBox.IsChecked = item.Enabled;
+                SyncPositionSlider(LeftBox, LeftSlider);
+                SyncPositionSlider(TopBox, TopSlider);
+                SetEditorStatus("Autosave", "Crntly.TextMuted");
+            }
+            finally
+            {
+                _loadingEditor = false;
+            }
         }
 
         private void OverlayEnabledChanged(object sender, RoutedEventArgs e)
@@ -197,54 +230,168 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 return;
 
             OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
+            if (ReferenceEquals(OverlayList.SelectedItem, item))
+                SetEditorStatus("Saved", "Crntly.Success");
         }
 
-        private void Save_Click(object sender, RoutedEventArgs e)
+        private void EditorEnabledChanged(object sender, RoutedEventArgs e)
         {
+            if (_loadingEditor || _loadingItems)
+                return;
+
             var item = OverlayList.SelectedItem as OverlayItem;
             if (item == null)
                 return;
 
+            _saveDebounceTimer.Stop();
+            item.Enabled = EnabledBox.IsChecked == true;
+            OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
+            OverlayList.Items.Refresh();
+            SetEditorStatus("Saved", "Crntly.Success");
+        }
+
+        private void EditorField_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loadingEditor || OverlayList == null || OverlayList.SelectedItem == null)
+                return;
+
+            if (ReferenceEquals(sender, LeftBox))
+                SyncPositionSlider(LeftBox, LeftSlider);
+            else if (ReferenceEquals(sender, TopBox))
+                SyncPositionSlider(TopBox, TopSlider);
+
+            ScheduleAutosave();
+        }
+
+        private void PositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_loadingEditor || _syncingPositionControls || OverlayList == null || OverlayList.SelectedItem == null)
+                return;
+
+            _syncingPositionControls = true;
+            try
+            {
+                if (ReferenceEquals(sender, LeftSlider))
+                    LeftBox.Text = FormatPositionNumber(LeftSlider.Value);
+                else if (ReferenceEquals(sender, TopSlider))
+                    TopBox.Text = FormatPositionNumber(TopSlider.Value);
+            }
+            finally
+            {
+                _syncingPositionControls = false;
+            }
+
+            ScheduleAutosave();
+        }
+
+        private void ScheduleAutosave()
+        {
+            _saveDebounceTimer.Stop();
+            _saveDebounceTimer.Start();
+            SetEditorStatus("Saving…", "Crntly.Accent");
+        }
+
+        private void AutosaveTimer_Tick(object sender, EventArgs e)
+        {
+            _saveDebounceTimer.Stop();
+            CommitEditorChanges();
+        }
+
+        private void FlushPendingAutosave()
+        {
+            if (!_saveDebounceTimer.IsEnabled)
+                return;
+
+            _saveDebounceTimer.Stop();
+            CommitEditorChanges();
+        }
+
+        private bool CommitEditorChanges()
+        {
+            if (_loadingEditor)
+                return false;
+
+            var item = OverlayList.SelectedItem as OverlayItem;
+            if (item == null)
+                return false;
+
+            string normalizedWidth;
+            string normalizedHeight;
+            string normalizedLeft;
+            string normalizedTop;
+            string validationMessage;
+
+            if (!TryValidateEditor(out normalizedWidth, out normalizedHeight, out normalizedLeft, out normalizedTop, out validationMessage))
+            {
+                SetEditorStatus(validationMessage, "Crntly.Danger");
+                return false;
+            }
+
+            item.Name = NameBox.Text.Trim();
+            item.Url = UrlBox.Text.Trim();
+            item.Width = normalizedWidth;
+            item.Height = normalizedHeight;
+            item.Left = normalizedLeft;
+            item.Top = normalizedTop;
+            item.Enabled = EnabledBox.IsChecked == true;
+
+            OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
+            OverlayList.Items.Refresh();
+
+            _loadingEditor = true;
+            try
+            {
+                LeftBox.Text = DisplayPosition(item.Left);
+                TopBox.Text = DisplayPosition(item.Top);
+                SyncPositionSlider(LeftBox, LeftSlider);
+                SyncPositionSlider(TopBox, TopSlider);
+            }
+            finally
+            {
+                _loadingEditor = false;
+            }
+
+            SetEditorStatus("Saved", "Crntly.Success");
+            return true;
+        }
+
+        private bool TryValidateEditor(out string width, out string height, out string left, out string top, out string message)
+        {
+            width = null;
+            height = null;
+            left = null;
+            top = null;
+            message = null;
+
             if (string.IsNullOrWhiteSpace(NameBox.Text))
             {
-                ShowValidation("Give this overlay a name.");
-                return;
+                message = "Enter a name";
+                return false;
             }
 
             Uri uri;
             if (!Uri.TryCreate(UrlBox.Text.Trim(), UriKind.Absolute, out uri) ||
                 (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeFile))
             {
-                ShowValidation("URL must be http://, https://, or file:///.");
-                return;
+                message = "Enter a valid URL";
+                return false;
             }
 
-            if (!IsCssLength(WidthBox.Text) || !IsCssLength(HeightBox.Text))
+            if (!TryNormalizeCssLength(WidthBox.Text, "100%", false, out width) ||
+                !TryNormalizeCssLength(HeightBox.Text, "100%", false, out height))
             {
-                ShowValidation("Width and height must use px, %, vw, or vh (or 0).");
-                return;
+                message = "Check width / height";
+                return false;
             }
 
-            if (!IsPosition(LeftBox.Text) || !IsPosition(TopBox.Text))
+            if (!TryNormalizePosition(LeftBox.Text, "0px", out left) ||
+                !TryNormalizePosition(TopBox.Text, "0px", out top))
             {
-                ShowValidation("Left (x) and top (y) are pixels by default. Enter a number such as 50 or -20. Explicit px, %, vw, or vh values are also supported.");
-                return;
+                message = "Check x / y";
+                return false;
             }
 
-            item.Name = NameBox.Text.Trim();
-            item.Url = UrlBox.Text.Trim();
-            item.Width = NormalizeCssLength(WidthBox.Text, "100%");
-            item.Height = NormalizeCssLength(HeightBox.Text, "100%");
-            item.Left = NormalizePosition(LeftBox.Text, "0px");
-            item.Top = NormalizePosition(TopBox.Text, "0px");
-            item.Enabled = EnabledBox.IsChecked == true;
-
-            OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
-            OverlayList.Items.Refresh();
-
-            // Keep the editor clean: positions are shown as bare pixel values when possible.
-            LeftBox.Text = DisplayPosition(item.Left);
-            TopBox.Text = DisplayPosition(item.Top);
+            return true;
         }
 
         private void RaiseOrderChanged()
@@ -253,49 +400,90 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 new OverlayOrderEventArgs(Items.Select(x => x.Clone()).ToList()));
         }
 
-        private static bool IsCssLength(string value)
+        private static bool TryNormalizeCssLength(string value, string fallback, bool allowNegative, out string normalized)
         {
+            normalized = fallback;
             if (string.IsNullOrWhiteSpace(value))
-                return true;
+                return false;
 
-            value = value.Trim().ToLowerInvariant();
-            if (value == "0")
+            var input = value.Trim().ToLowerInvariant();
+            if (input == "0")
+            {
+                normalized = "0px";
                 return true;
+            }
 
-            return value.EndsWith("px") || value.EndsWith("%") || value.EndsWith("vw") || value.EndsWith("vh");
+            string unit = null;
+            foreach (var candidate in new[] { "px", "%", "vw", "vh" })
+            {
+                if (input.EndsWith(candidate, StringComparison.Ordinal))
+                {
+                    unit = candidate;
+                    break;
+                }
+            }
+
+            if (unit == null)
+                return false;
+
+            double number;
+            if (!TryParseNumber(input.Substring(0, input.Length - unit.Length), out number))
+                return false;
+
+            if (!allowNegative && number < 0)
+                return false;
+
+            normalized = FormatNumber(number) + unit;
+            return true;
         }
 
-        private static bool IsPosition(string value)
+        private static bool TryNormalizePosition(string value, string fallback, out string normalized)
         {
+            normalized = fallback;
             if (string.IsNullOrWhiteSpace(value))
-                return true;
+                return false;
 
-            var trimmed = value.Trim();
-            double numeric;
-            if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out numeric))
+            var input = value.Trim().ToLowerInvariant();
+            double bareNumber;
+            if (TryParseNumber(input, out bareNumber))
+            {
+                normalized = FormatNumber(bareNumber) + "px";
                 return true;
+            }
 
-            return IsCssLength(trimmed);
+            return TryNormalizeCssLength(input, fallback, true, out normalized);
         }
 
-        private static string NormalizeCssLength(string value, string fallback)
+        private static bool TryParsePixelPosition(string value, out double pixels)
         {
+            pixels = 0;
             if (string.IsNullOrWhiteSpace(value))
-                return fallback;
-            return value.Trim().ToLowerInvariant() == "0" ? "0px" : value.Trim().ToLowerInvariant();
+                return false;
+
+            var input = value.Trim().ToLowerInvariant();
+            if (input.EndsWith("px", StringComparison.Ordinal))
+                input = input.Substring(0, input.Length - 2);
+
+            return TryParseNumber(input, out pixels);
         }
 
-        private static string NormalizePosition(string value, string fallback)
+        private static bool TryParseNumber(string value, out double number)
         {
-            if (string.IsNullOrWhiteSpace(value))
-                return fallback;
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number) ||
+                   double.TryParse(value, NumberStyles.Float, CultureInfo.CurrentCulture, out number);
+        }
 
-            var trimmed = value.Trim().ToLowerInvariant();
-            double numeric;
-            if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out numeric))
-                return numeric.ToString("0.########", CultureInfo.InvariantCulture) + "px";
+        private static string FormatNumber(double value)
+        {
+            if (Math.Abs(value - Math.Round(value)) < 0.000001)
+                return Math.Round(value).ToString(CultureInfo.InvariantCulture);
 
-            return NormalizeCssLength(trimmed, fallback);
+            return value.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+
+        private static string FormatPositionNumber(double value)
+        {
+            return FormatNumber(Math.Round(value));
         }
 
         private static string DisplayPosition(string value)
@@ -303,31 +491,69 @@ namespace Crntly.StreamerBot.UI.Overlayer
             if (string.IsNullOrWhiteSpace(value))
                 return "0";
 
-            var trimmed = value.Trim();
-            if (!trimmed.EndsWith("px", StringComparison.OrdinalIgnoreCase))
-                return trimmed;
+            var input = value.Trim();
+            if (input.EndsWith("px", StringComparison.OrdinalIgnoreCase))
+                return input.Substring(0, input.Length - 2);
 
-            var numericPart = trimmed.Substring(0, trimmed.Length - 2).Trim();
-            double numeric;
-            return double.TryParse(numericPart, NumberStyles.Float, CultureInfo.InvariantCulture, out numeric)
-                ? numeric.ToString("0.########", CultureInfo.InvariantCulture)
-                : trimmed;
+            return input;
         }
 
-        private void ShowValidation(string message)
+        private void SyncPositionSlider(TextBox textBox, Slider slider)
         {
-            MessageBox.Show(this, message, "Check overlay settings", MessageBoxButton.OK, MessageBoxImage.Information);
+            if (textBox == null || slider == null)
+                return;
+
+            double pixels;
+            if (!TryParsePixelPosition(textBox.Text, out pixels))
+            {
+                slider.IsEnabled = false;
+                return;
+            }
+
+            slider.IsEnabled = true;
+            _syncingPositionControls = true;
+            try
+            {
+                slider.Value = Math.Max(slider.Minimum, Math.Min(slider.Maximum, pixels));
+            }
+            finally
+            {
+                _syncingPositionControls = false;
+            }
         }
 
-        private void ClearEditor()
+        private void SetEditorStatus(string text, string brushResource)
         {
-            NameBox.Text = string.Empty;
-            UrlBox.Text = string.Empty;
-            WidthBox.Text = "100%";
-            HeightBox.Text = "100%";
-            LeftBox.Text = "0";
-            TopBox.Text = "0";
-            EnabledBox.IsChecked = true;
+            if (EditorStatusText == null || EditorStatusDot == null)
+                return;
+
+            EditorStatusText.Text = text;
+            var brush = (Brush)FindResource(brushResource);
+            EditorStatusText.Foreground = brush;
+            EditorStatusDot.Fill = brush;
+        }
+
+        private void ClearEditorSafely()
+        {
+            var previous = _loadingEditor;
+            _loadingEditor = true;
+            try
+            {
+                NameBox.Text = string.Empty;
+                UrlBox.Text = string.Empty;
+                WidthBox.Text = "100%";
+                HeightBox.Text = "100%";
+                LeftBox.Text = "0";
+                TopBox.Text = "0";
+                EnabledBox.IsChecked = true;
+                LeftSlider.Value = 0;
+                TopSlider.Value = 0;
+                SetEditorStatus("Autosave", "Crntly.TextMuted");
+            }
+            finally
+            {
+                _loadingEditor = previous;
+            }
         }
 
         private void SetEditorEnabled(bool enabled)
@@ -339,6 +565,17 @@ namespace Crntly.StreamerBot.UI.Overlayer
             LeftBox.IsEnabled = enabled;
             TopBox.IsEnabled = enabled;
             EnabledBox.IsEnabled = enabled;
+
+            if (!enabled)
+            {
+                LeftSlider.IsEnabled = false;
+                TopSlider.IsEnabled = false;
+            }
+            else
+            {
+                SyncPositionSlider(LeftBox, LeftSlider);
+                SyncPositionSlider(TopBox, TopSlider);
+            }
         }
     }
 }
