@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 
-// CRNTLY Overlay(er) v2.2.0
+// CRNTLY Overlay(er) v2.2.1
 // Streamer.bot editor reference required:
 //   Newtonsoft.Json.dll
 //
@@ -22,7 +22,7 @@ using Newtonsoft.Json;
 public static class OverlayErBuild
 {
     public const string ProductName = "Overlay(er)";
-    public const string Version = "2.2.0";
+    public const string Version = "2.2.1";
     public static string DisplayVersion { get { return ProductName + " v" + Version; } }
 }
 
@@ -374,20 +374,94 @@ public sealed class OverlayerScriptUi : IDisposable
           </Button>
         </Grid>
       </Border>
-      <Grid Grid.Row=""2"" Margin=""7,0,7,4""><Grid.ColumnDefinitions><ColumnDefinition Width=""225"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""*"" /></Grid.ColumnDefinitions>
-        <Border Grid.Column=""0"" Style=""{StaticResource Crntly.Card}"" Padding=""6""><Grid><Grid.RowDefinitions><RowDefinition Height=""25"" /><RowDefinition Height=""*"" /></Grid.RowDefinitions>
-          <Grid Grid.Row=""0""><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /></Grid.ColumnDefinitions><TextBlock Text=""Overlays"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""11"" VerticalAlignment=""Center"" />
-            <StackPanel Grid.Column=""1"" Orientation=""Horizontal"" VerticalAlignment=""Center""><Button x:Name=""AddButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Add overlay""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M11,5H13V11H19V13H13V19H11V13H5V11H11V5Z"" /></Button><Button x:Name=""DuplicateButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Duplicate selected overlay""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M19,21H8C6.9,21 6,20.1 6,19V8C6,6.9 6.9,6 8,6H19C20.1,6 21,6.9 21,8V19C21,20.1 20.1,21 19,21 M16,3H5C3.9,3 3,3.9 3,5V16H5V5H16V3Z"" /></Button><Border Style=""{StaticResource Crntly.ToolbarSeparator}"" /><Button x:Name=""MoveUpButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Move overlay up""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M7,14L12,9L17,14H7Z"" /></Button><Button x:Name=""MoveDownButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Move overlay down""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M7,10L12,15L17,10H7Z"" /></Button><Button x:Name=""DeleteButton"" Style=""{StaticResource Crntly.DangerIconButton}"" ToolTip=""Delete selected overlay""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4 M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19Z"" /></Button></StackPanel>
+      <Grid Grid.Row=""2"" Margin=""7,0,7,4"">
+        <Grid.ColumnDefinitions><ColumnDefinition Width=""225"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""*"" /></Grid.ColumnDefinitions>
+        <Border Grid.Column=""0"" Style=""{StaticResource Crntly.Card}"" Padding=""6"">
+          <Grid>
+            <Grid.RowDefinitions><RowDefinition Height=""25"" /><RowDefinition Height=""*"" /></Grid.RowDefinitions>
+            <Grid Grid.Row=""0"">
+              <Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /></Grid.ColumnDefinitions>
+              <TextBlock Text=""Overlays"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""11"" VerticalAlignment=""Center"" />
+              <StackPanel Grid.Column=""1"" Orientation=""Horizontal"" VerticalAlignment=""Center"">
+                <Button x:Name=""AddButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Add overlay""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M11,5H13V11H19V13H13V19H11V13H5V11H11V5Z"" /></Button>
+                <Button x:Name=""DuplicateButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Duplicate selected overlay""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M19,21H8C6.9,21 6,20.1 6,19V8C6,6.9 6.9,6 8,6H19C20.1,6 21,6.9 21,8V19C21,20.1 20.1,21 19,21 M16,3H5C3.9,3 3,3.9 3,5V16H5V5H16V3Z"" /></Button>
+                <Border Style=""{StaticResource Crntly.ToolbarSeparator}"" />
+                <Button x:Name=""MoveUpButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Move overlay up""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M7,14L12,9L17,14H7Z"" /></Button>
+                <Button x:Name=""MoveDownButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Move overlay down""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M7,10L12,15L17,10H7Z"" /></Button>
+                <Button x:Name=""DeleteButton"" Style=""{StaticResource Crntly.DangerIconButton}"" ToolTip=""Delete selected overlay""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4 M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19Z"" /></Button>
+              </StackPanel>
+            </Grid>
+            <ListBox Grid.Row=""1"" x:Name=""OverlayList"">
+              <ListBox.ItemTemplate><DataTemplate>
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition Width=""30"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /></Grid.ColumnDefinitions>
+                  <CheckBox Grid.Column=""0"" IsChecked=""{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"" VerticalAlignment=""Center"" />
+                  <StackPanel Grid.Column=""1"" VerticalAlignment=""Center"">
+                    <TextBlock Text=""{Binding Name}"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""10"" TextTrimming=""CharacterEllipsis"" />
+                    <TextBlock Text=""{Binding Url}"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""8"" Margin=""0,1,5,0"" TextTrimming=""CharacterEllipsis"" />
+                  </StackPanel>
+                  <TextBlock Grid.Column=""2"" Text=""{Binding DisplaySourceKind}"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" FontWeight=""SemiBold"" VerticalAlignment=""Top"" Margin=""3,1,0,0"" />
+                </Grid>
+              </DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
           </Grid>
-          <ListBox Grid.Row=""1"" x:Name=""OverlayList""><ListBox.ItemTemplate><DataTemplate><Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""30"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /></Grid.ColumnDefinitions><CheckBox Grid.Column=""0"" IsChecked=""{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"" VerticalAlignment=""Center"" /><StackPanel Grid.Column=""1"" VerticalAlignment=""Center""><TextBlock Text=""{Binding Name}"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""10"" TextTrimming=""CharacterEllipsis"" /><TextBlock Text=""{Binding Url}"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""8"" Margin=""0,1,5,0"" TextTrimming=""CharacterEllipsis"" /></StackPanel><TextBlock Grid.Column=""2"" Text=""{Binding DisplaySourceKind}"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" FontWeight=""SemiBold"" VerticalAlignment=""Top"" Margin=""3,1,0,0"" /></Grid></DataTemplate></ListBox.ItemTemplate></ListBox>
-        </Grid></Border>
-        <Border Grid.Column=""2"" Style=""{StaticResource Crntly.Card}"" Padding=""7""><ScrollViewer VerticalScrollBarVisibility=""Auto"" HorizontalScrollBarVisibility=""Disabled""><StackPanel Margin=""0,0,2,0""><Grid Margin=""0,0,0,6""><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /></Grid.ColumnDefinitions><StackPanel Orientation=""Horizontal"" VerticalAlignment=""Center""><TextBlock Text=""Overlay settings"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""12"" /><StackPanel Orientation=""Horizontal"" Margin=""7,0,0,0"" VerticalAlignment=""Center""><Ellipse x:Name=""EditorStatusDot"" Width=""4"" Height=""4"" Fill=""{DynamicResource Crntly.TextMuted}"" Margin=""0,0,4,0"" /><TextBlock x:Name=""EditorStatusText"" Text=""Autosave"" Foreground=""{DynamicResource Crntly.TextMuted}"" FontSize=""8"" /></StackPanel></StackPanel><Button x:Name=""ResetLayoutButton"" Grid.Column=""1"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset size and position to defaults""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid>
-          <Grid Margin=""0,0,0,6""><Grid.ColumnDefinitions><ColumnDefinition Width=""0.34*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""0.66*"" /></Grid.ColumnDefinitions><StackPanel Grid.Column=""0""><TextBlock Text=""NAME"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" /><TextBox x:Name=""NameBox"" /></StackPanel><StackPanel Grid.Column=""2""><TextBlock Text=""URL / LOCAL FILE"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /><ColumnDefinition Width=""2"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBox x:Name=""UrlBox"" /><Button x:Name=""BrowseSourceButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Browse for local overlay file""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M10,4H4C2.9,4 2,4.9 2,6V18C2,19.1 2.9,20 4,20H20C21.1,20 22,19.1 22,18V8C22,6.9 21.1,6 20,6H12L10,4Z"" /></Button><Button x:Name=""OpenSourceButton"" Grid.Column=""4"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Open overlay source""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z"" /></Button></Grid></StackPanel></Grid>
-          <Grid Margin=""0,0,0,6""><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""*"" /></Grid.ColumnDefinitions><StackPanel Grid.Column=""0""><TextBlock Text=""WIDTH"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBox x:Name=""WidthBox"" /><Button x:Name=""ResetWidthButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset width to 100%""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid></StackPanel><StackPanel Grid.Column=""2""><TextBlock Text=""HEIGHT"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" /><Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBox x:Name=""HeightBox"" /><Button x:Name=""ResetHeightButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset height to 100%""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid></StackPanel></Grid>
-          <Border Style=""{StaticResource Crntly.SubtleCard}"" Padding=""6""><StackPanel><StackPanel Orientation=""Horizontal"" Margin=""0,0,0,4""><TextBlock Text=""Position"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""10"" /><TextBlock Text=""  ·  live"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""8"" /></StackPanel><Grid Margin=""0,0,0,4""><Grid.ColumnDefinitions><ColumnDefinition Width=""14"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""58"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBlock Grid.Column=""0"" Text=""X"" Foreground=""{DynamicResource Crntly.TextMuted}"" FontWeight=""SemiBold"" FontSize=""9"" VerticalAlignment=""Center"" /><Slider Grid.Column=""1"" x:Name=""LeftSlider"" Minimum=""-1920"" Maximum=""3840"" SmallChange=""1"" LargeChange=""50"" IsMoveToPointEnabled=""True"" ToolTip=""X position in pixels. Range: -1920 to 3840."" /><TextBox Grid.Column=""3"" x:Name=""LeftBox"" TextAlignment=""Right"" /><Button x:Name=""ResetLeftButton"" Grid.Column=""5"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset X to 0""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid><Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""14"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""58"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBlock Grid.Column=""0"" Text=""Y"" Foreground=""{DynamicResource Crntly.TextMuted}"" FontWeight=""SemiBold"" FontSize=""9"" VerticalAlignment=""Center"" /><Slider Grid.Column=""1"" x:Name=""TopSlider"" Minimum=""-1080"" Maximum=""2160"" SmallChange=""1"" LargeChange=""50"" IsMoveToPointEnabled=""True"" ToolTip=""Y position in pixels. Range: -1080 to 2160."" /><TextBox Grid.Column=""3"" x:Name=""TopBox"" TextAlignment=""Right"" /><Button x:Name=""ResetTopButton"" Grid.Column=""5"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset Y to 0""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid></StackPanel></Border>
-        </StackPanel></ScrollViewer></Border>
+        </Border>
+        <Border Grid.Column=""2"" Style=""{StaticResource Crntly.Card}"" Padding=""7"">
+          <ScrollViewer VerticalScrollBarVisibility=""Auto"" HorizontalScrollBarVisibility=""Disabled"">
+            <StackPanel Margin=""0,0,2,0"">
+              <Grid Margin=""0,0,0,6"">
+                <Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /></Grid.ColumnDefinitions>
+                <StackPanel Orientation=""Horizontal"" VerticalAlignment=""Center"">
+                  <TextBlock Text=""Overlay settings"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""12"" />
+                  <StackPanel Orientation=""Horizontal"" Margin=""7,0,0,0"" VerticalAlignment=""Center"">
+                    <Ellipse x:Name=""EditorStatusDot"" Width=""4"" Height=""4"" Fill=""{DynamicResource Crntly.TextMuted}"" Margin=""0,0,4,0"" />
+                    <TextBlock x:Name=""EditorStatusText"" Text=""Autosave"" Foreground=""{DynamicResource Crntly.TextMuted}"" FontSize=""8"" />
+                  </StackPanel>
+                </StackPanel>
+                <StackPanel Grid.Column=""1"" Orientation=""Horizontal"" VerticalAlignment=""Center"">
+                  <Button x:Name=""ResetLayoutButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset size and position to defaults""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button>
+                </StackPanel>
+              </Grid>
+              <Grid Margin=""0,0,0,6"">
+                <Grid.ColumnDefinitions><ColumnDefinition Width=""0.34*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""0.66*"" /></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column=""0""><TextBlock Text=""NAME"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" /><TextBox x:Name=""NameBox"" /></StackPanel>
+                <StackPanel Grid.Column=""2""><TextBlock Text=""URL / LOCAL FILE"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" />
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /><ColumnDefinition Width=""2"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
+                    <TextBox x:Name=""UrlBox"" />
+                    <Button x:Name=""BrowseSourceButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Browse for local overlay file""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M10,4H4C2.9,4 2,4.9 2,6V18C2,19.1 2.9,20 4,20H20C21.1,20 22,19.1 22,18V8C22,6.9 21.1,6 20,6H12L10,4Z"" /></Button>
+                    <Button x:Name=""OpenSourceButton"" Grid.Column=""4"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Open overlay source""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z"" /></Button>
+                  </Grid>
+                </StackPanel>
+              </Grid>
+              <Grid Margin=""0,0,0,6"">
+                <Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""*"" /></Grid.ColumnDefinitions>
+                <StackPanel Grid.Column=""0""><TextBlock Text=""WIDTH"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" />
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBox x:Name=""WidthBox"" /><Button x:Name=""ResetWidthButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset width to 100%""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid>
+                </StackPanel>
+                <StackPanel Grid.Column=""2""><TextBlock Text=""HEIGHT"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" />
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions><TextBox x:Name=""HeightBox"" /><Button x:Name=""ResetHeightButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset height to 100%""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button></Grid>
+                </StackPanel>
+              </Grid>
+              <Border Style=""{StaticResource Crntly.SubtleCard}"" Padding=""6""><StackPanel>
+                <StackPanel Orientation=""Horizontal"" Margin=""0,0,0,4""><TextBlock Text=""Position"" Foreground=""{DynamicResource Crntly.Text}"" FontWeight=""SemiBold"" FontSize=""10"" /><TextBlock Text=""  ·  live"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""8"" /></StackPanel>
+                <Grid Margin=""0,0,0,4""><Grid.ColumnDefinitions><ColumnDefinition Width=""14"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""58"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column=""0"" Text=""X"" Foreground=""{DynamicResource Crntly.TextMuted}"" FontWeight=""SemiBold"" FontSize=""9"" VerticalAlignment=""Center"" />
+                  <Slider Grid.Column=""1"" x:Name=""LeftSlider"" Minimum=""-1920"" Maximum=""3840"" SmallChange=""1"" LargeChange=""50"" IsMoveToPointEnabled=""True"" ToolTip=""X position in pixels. Range: -1920 to 3840."" />
+                  <TextBox Grid.Column=""3"" x:Name=""LeftBox"" TextAlignment=""Right"" />
+                  <Button x:Name=""ResetLeftButton"" Grid.Column=""5"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset X to 0""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button>
+                </Grid>
+                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""14"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""58"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
+                  <TextBlock Grid.Column=""0"" Text=""Y"" Foreground=""{DynamicResource Crntly.TextMuted}"" FontWeight=""SemiBold"" FontSize=""9"" VerticalAlignment=""Center"" />
+                  <Slider Grid.Column=""1"" x:Name=""TopSlider"" Minimum=""-1080"" Maximum=""2160"" SmallChange=""1"" LargeChange=""50"" IsMoveToPointEnabled=""True"" ToolTip=""Y position in pixels. Range: -1080 to 2160."" />
+                  <TextBox Grid.Column=""3"" x:Name=""TopBox"" TextAlignment=""Right"" />
+                  <Button x:Name=""ResetTopButton"" Grid.Column=""5"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset Y to 0""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button>
+                </Grid>
+              </StackPanel></Border>
+            </StackPanel>
+          </ScrollViewer>
+        </Border>
       </Grid>
-      <Grid Grid.Row=""3"" Margin=""8,0""><TextBlock Text=""CRNTLY • livestreaming.tools"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" VerticalAlignment=""Center"" /><TextBlock x:Name=""VersionText"" Text=""Overlay(er) v2.2.0"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" HorizontalAlignment=""Right"" VerticalAlignment=""Center"" /></Grid>
+      <Grid Grid.Row=""3"" Margin=""8,0""><TextBlock Text=""CRNTLY • livestreaming.tools"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" VerticalAlignment=""Center"" /><TextBlock x:Name=""VersionText"" Text=""Overlay(er) v2.2.1"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" HorizontalAlignment=""Right"" VerticalAlignment=""Center"" /></Grid>
     </Grid>
   </Border>
 </Window>";
@@ -944,16 +1018,18 @@ public sealed class OverlayerScriptUi : IDisposable
         if (_editingItem == null)
             return;
 
-        var dialogType = Type.GetType("Microsoft.Win32.OpenFileDialog, PresentationFramework", false);
+        var dialogType = Type.GetType("System.Windows.Forms.OpenFileDialog, System.Windows.Forms", false)
+            ?? Type.GetType("Microsoft.Win32.OpenFileDialog, PresentationFramework", false);
         if (dialogType == null)
         {
             SetEditorStatus("File picker unavailable", "Crntly.Danger");
             return;
         }
 
+        object dialog = null;
         try
         {
-            var dialog = Activator.CreateInstance(dialogType);
+            dialog = Activator.CreateInstance(dialogType);
             SetReflectedProperty(dialogType, dialog, "Title", "Select local overlay file");
             SetReflectedProperty(dialogType, dialog, "Filter", "Web / media files|*.html;*.htm;*.svg;*.png;*.jpg;*.jpeg;*.gif;*.webp;*.mp4;*.webm|All files|*.*");
             SetReflectedProperty(dialogType, dialog, "CheckFileExists", true);
@@ -970,7 +1046,9 @@ public sealed class OverlayerScriptUi : IDisposable
 
             var show = dialogType.GetMethod("ShowDialog", Type.EmptyTypes);
             var accepted = show == null ? null : show.Invoke(dialog, null);
-            if (!(accepted is bool) || !(bool)accepted)
+            var acceptedDialog = (accepted is bool && (bool)accepted)
+                || string.Equals(Convert.ToString(accepted), "OK", StringComparison.OrdinalIgnoreCase);
+            if (!acceptedDialog)
                 return;
 
             var fileNameProperty = dialogType.GetProperty("FileName", BindingFlags.Instance | BindingFlags.Public);
@@ -991,6 +1069,12 @@ public sealed class OverlayerScriptUi : IDisposable
         {
             _logError("Unable to browse for local overlay file: " + ex.Message);
             SetEditorStatus("Could not browse", "Crntly.Danger");
+        }
+        finally
+        {
+            var disposable = dialog as IDisposable;
+            if (disposable != null)
+                disposable.Dispose();
         }
     }
 
