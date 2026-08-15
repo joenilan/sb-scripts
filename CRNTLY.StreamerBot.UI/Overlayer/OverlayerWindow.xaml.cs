@@ -14,6 +14,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
     public partial class OverlayerWindow : Window
     {
         private readonly DispatcherTimer _saveDebounceTimer;
+        private OverlayItem _editingItem;
         private bool _allowClose;
         private bool _loadingItems;
         private bool _loadingEditor;
@@ -49,6 +50,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
         public void SetItems(IEnumerable<OverlayItem> items)
         {
             _saveDebounceTimer.Stop();
+            _editingItem = null;
             _loadingItems = true;
             try
             {
@@ -83,6 +85,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         public void CloseForShutdown()
         {
+            FlushPendingAutosave();
             _saveDebounceTimer.Stop();
             _allowClose = true;
             Close();
@@ -114,6 +117,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         private void ServerButton_Click(object sender, RoutedEventArgs e)
         {
+            FlushPendingAutosave();
+
             if (IsServerRunning)
                 StopServerRequested?.Invoke(this, EventArgs.Empty);
             else
@@ -128,6 +133,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         private void Add_Click(object sender, RoutedEventArgs e)
         {
+            FlushPendingAutosave();
             var item = new OverlayItem();
             Items.Add(item);
             OverlayList.SelectedItem = item;
@@ -149,6 +155,9 @@ namespace Crntly.StreamerBot.UI.Overlayer
             _saveDebounceTimer.Stop();
             var index = OverlayList.SelectedIndex;
             Items.Remove(item);
+            if (ReferenceEquals(_editingItem, item))
+                _editingItem = null;
+
             OverlayDeleted?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
             RaiseOrderChanged();
 
@@ -191,6 +200,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 FlushPendingAutosave();
 
             var item = OverlayList.SelectedItem as OverlayItem;
+            _editingItem = item;
+
             if (item == null)
             {
                 ClearEditorSafely();
@@ -230,7 +241,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 return;
 
             OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
-            if (ReferenceEquals(OverlayList.SelectedItem, item))
+            if (ReferenceEquals(_editingItem, item))
                 SetEditorStatus("Saved", "Crntly.Success");
         }
 
@@ -239,11 +250,10 @@ namespace Crntly.StreamerBot.UI.Overlayer
             if (_loadingEditor || _loadingItems)
                 return;
 
-            var item = OverlayList.SelectedItem as OverlayItem;
+            var item = _editingItem;
             if (item == null)
                 return;
 
-            _saveDebounceTimer.Stop();
             item.Enabled = EnabledBox.IsChecked == true;
             OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
             OverlayList.Items.Refresh();
@@ -252,7 +262,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         private void EditorField_TextChanged(object sender, TextChangedEventArgs e)
         {
-            if (_loadingEditor || OverlayList == null || OverlayList.SelectedItem == null)
+            if (_loadingEditor || _editingItem == null)
                 return;
 
             if (ReferenceEquals(sender, LeftBox))
@@ -265,7 +275,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         private void PositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            if (_loadingEditor || _syncingPositionControls || OverlayList == null || OverlayList.SelectedItem == null)
+            if (_loadingEditor || _syncingPositionControls || _editingItem == null)
                 return;
 
             _syncingPositionControls = true;
@@ -311,7 +321,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             if (_loadingEditor)
                 return false;
 
-            var item = OverlayList.SelectedItem as OverlayItem;
+            var item = _editingItem;
             if (item == null)
                 return false;
 
