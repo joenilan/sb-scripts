@@ -3,36 +3,39 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Reflection;
 using System.Text;
-using System.Threading;
 using Newtonsoft.Json;
-using Crntly.StreamerBot.UI.Overlayer;
 
 // CRNTLY Overlayer v2 preview
-// Streamer.bot references:
-//   CRNTLY.StreamerBot.UI.dll
+// Streamer.bot reference required today:
 //   Newtonsoft.Json.dll
 //
-// This keeps the original Overlayer goal: many web/local overlays rendered through
-// ONE OBS Browser Source at http://localhost:42069/.
+// CRNTLY.StreamerBot.UI.dll is intentionally NOT a compile-time reference.
+// The script discovers and loads it dynamically from <Streamer.bot>\dlls so
+// a future first-run bootstrap can install/update the shared CRNTLY component.
 public class CPHInline
 {
     private OverlayerRuntime _runtime;
 
     public void Init()
     {
-        _runtime = new OverlayerRuntime(
-            message => CPH.LogInfo("[CRNTLY Overlayer] " + message),
-            message => CPH.LogError("[CRNTLY Overlayer] " + message));
+        // Delay UI dependency resolution until Execute(). This lets the action compile
+        // and display bootstrap guidance even when the CRNTLY DLL is not installed yet.
     }
 
     public bool Execute()
     {
         if (_runtime == null)
         {
-            _runtime = new OverlayerRuntime(
-                message => CPH.LogInfo("[CRNTLY Overlayer] " + message),
-                message => CPH.LogError("[CRNTLY Overlayer] " + message));
+            var log = new Action<string>(message => CPH.LogInfo("[CRNTLY Overlayer] " + message));
+            var logError = new Action<string>(message => CPH.LogError("[CRNTLY Overlayer] " + message));
+
+            OverlayerUiProxy ui;
+            if (!CrntlyDependencyBootstrap.TryCreateOverlayerUi(log, logError, out ui))
+                return false;
+
+            _runtime = new OverlayerRuntime(log, logError, ui);
         }
 
         _runtime.Show();
@@ -49,32 +52,208 @@ public class CPHInline
     }
 }
 
+public static class CrntlyDependencyBootstrap
+{
+    private const string DllName = "CRNTLY.StreamerBot.UI.dll";
+    private const string BridgeTypeName = "Crntly.StreamerBot.UI.Overlayer.OverlayerScriptBridge";
+
+    public static bool TryCreateOverlayerUi(Action<string> log, Action<string> logError, out OverlayerUiProxy ui)
+    {
+        ui = null;
+
+        try
+        {
+            var streamerBotRoot = AppDomain.CurrentDomain.BaseDirectory;
+            var dllPath = Path.Combine(streamerBotRoot, "dlls", DllName);
+
+            if (!File.Exists(dllPath))
+            {
+                var message =
+                    "CRNTLY Overlayer needs the shared CRNTLY UI component.\n\n" +
+                    "Expected:\n" + dllPath + "\n\n" +
+                    "For this test build, run build-ui.ps1 from the sb-scripts repo. " +
+                    "It will build and deploy the DLL into Streamer.bot's dlls folder.\n\n" +
+                    "Automatic download/install will be added later.";
+
+                ShowBootstrapMessage(message, "CRNTLY Overlayer - Component Missing");
+                if (logError != null)
+                    logError("Missing UI component: " + dllPath);
+                return false;
+            }
+
+            var assembly = FindLoadedAssembly() ?? Assembly.LoadFrom(dllPath);
+            var bridgeType = assembly.GetType(BridgeTypeName, false);
+            if (bridgeType == null)
+                throw new InvalidOperationException("The installed CRNTLY UI component does not contain " + BridgeTypeName + ". Rebuild/deploy the latest DLL.");
+
+            var bridge = Activator.CreateInstance(bridgeType);
+            ui = new OverlayerUiProxy(bridgeType, bridge);
+
+            if (log != null)
+                log("Loaded CRNTLY UI " + ui.AssemblyVersion + " from " + dllPath);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            var message =
+                "CRNTLY Overlayer could not load its UI component.\n\n" +
+                ex.Message + "\n\n" +
+                "Re-run build-ui.ps1, then run the action again.";
+            ShowBootstrapMessage(message, "CRNTLY Overlayer - Load Error");
+            if (logError != null)
+                logError("Unable to load CRNTLY UI: " + ex);
+            return false;
+        }
+    }
+
+    private static Assembly FindLoadedAssembly()
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            try
+            {
+                if (string.Equals(assembly.GetName().Name, "CRNTLY.StreamerBot.UI", StringComparison.OrdinalIgnoreCase))
+                    return assembly;
+            }
+            catch { }
+        }
+        return null;
+    }
+
+    private static void ShowBootstrapMessage(string message, string title)
+    {
+        // Use reflection so System.Windows.Forms.dll is not another required script reference.
+        try
+        {
+            var type = Type.GetType("System.Windows.Forms.MessageBox, System.Windows.Forms", false);
+            if (type == null)
+                return;
+
+            var method = type.GetMethod("Show", new[] { typeof(string), typeof(string) });
+            if (method != null)
+                method.Invoke(null, new object[] { message, title });
+        }
+        catch { }
+    }
+}
+
+public sealed class OverlayerUiProxy : IDisposable
+{
+    private readonly Type _bridgeType;
+    private readonly object _bridge;
+    private readonly MethodInfo _showJson;
+    private readonly MethodInfo _setItemsJson;
+    private readonly MethodInfo _setServerState;
+    private readonly MethodInfo _dispose;
+
+    public OverlayerUiProxy(Type bridgeType, object bridge)
+    {
+        _bridgeType = bridgeType;
+        _bridge = bridge;
+        _showJson = RequireMethod("ShowJson", typeof(string), typeof(bool), typeof(string));
+        _setItemsJson = RequireMethod("SetItemsJson", typeof(string));
+        _setServerState = RequireMethod("SetServerState", typeof(bool), typeof(string));
+        _dispose = RequireMethod("Dispose");
+    }
+
+    public string AssemblyVersion
+    {
+        get
+        {
+            var property = _bridgeType.GetProperty("AssemblyVersion");
+            return property == null ? "unknown" : Convert.ToString(property.GetValue(_bridge, null));
+        }
+    }
+
+    public Action StartServerRequested
+    {
+        set { SetCallback("StartServerRequested", value); }
+    }
+
+    public Action StopServerRequested
+    {
+        set { SetCallback("StopServerRequested", value); }
+    }
+
+    public Action<string> OverlayChanged
+    {
+        set { SetCallback("OverlayChanged", value); }
+    }
+
+    public Action<string> OverlayDeleted
+    {
+        set { SetCallback("OverlayDeleted", value); }
+    }
+
+    public Action<string> OverlayOrderChanged
+    {
+        set { SetCallback("OverlayOrderChanged", value); }
+    }
+
+    public void Show(IList<OverlayRecord> items, bool serverRunning, string serverUrl)
+    {
+        _showJson.Invoke(_bridge, new object[] { JsonConvert.SerializeObject(items ?? new List<OverlayRecord>()), serverRunning, serverUrl });
+    }
+
+    public void SetItems(IList<OverlayRecord> items)
+    {
+        _setItemsJson.Invoke(_bridge, new object[] { JsonConvert.SerializeObject(items ?? new List<OverlayRecord>()) });
+    }
+
+    public void SetServerState(bool running, string serverUrl)
+    {
+        _setServerState.Invoke(_bridge, new object[] { running, serverUrl });
+    }
+
+    private MethodInfo RequireMethod(string name, params Type[] parameterTypes)
+    {
+        var method = _bridgeType.GetMethod(name, parameterTypes);
+        if (method == null)
+            throw new MissingMethodException(_bridgeType.FullName, name);
+        return method;
+    }
+
+    private void SetCallback(string propertyName, object callback)
+    {
+        var property = _bridgeType.GetProperty(propertyName);
+        if (property == null || !property.CanWrite)
+            throw new MissingMemberException(_bridgeType.FullName, propertyName);
+        property.SetValue(_bridge, callback, null);
+    }
+
+    public void Dispose()
+    {
+        try { _dispose.Invoke(_bridge, null); } catch { }
+    }
+}
+
 public sealed class OverlayerRuntime : IDisposable
 {
     private readonly object _gate = new object();
     private readonly Action<string> _log;
     private readonly Action<string> _logError;
-    private readonly OverlayerUi _ui;
+    private readonly OverlayerUiProxy _ui;
     private readonly OverlayerConfigStore _configStore;
     private readonly CompositeOverlayServer _server;
-    private List<OverlayItem> _items;
+    private List<OverlayRecord> _items;
     private bool _disposed;
 
-    public OverlayerRuntime(Action<string> log, Action<string> logError)
+    public OverlayerRuntime(Action<string> log, Action<string> logError, OverlayerUiProxy ui)
     {
         _log = log ?? delegate { };
         _logError = logError ?? delegate { };
+        _ui = ui ?? throw new ArgumentNullException("ui");
         _configStore = new OverlayerConfigStore();
         _items = _configStore.Load(_logError);
         _server = new CompositeOverlayServer(_logError);
         _server.UpdateItems(Snapshot());
 
-        _ui = new OverlayerUi();
-        _ui.StartServerRequested += OnStartServerRequested;
-        _ui.StopServerRequested += OnStopServerRequested;
-        _ui.OverlayChanged += OnOverlayChanged;
-        _ui.OverlayDeleted += OnOverlayDeleted;
-        _ui.OverlayOrderChanged += OnOverlayOrderChanged;
+        _ui.StartServerRequested = OnStartServerRequested;
+        _ui.StopServerRequested = OnStopServerRequested;
+        _ui.OverlayChanged = OnOverlayChanged;
+        _ui.OverlayDeleted = OnOverlayDeleted;
+        _ui.OverlayOrderChanged = OnOverlayOrderChanged;
     }
 
     public void Show()
@@ -83,7 +262,7 @@ public sealed class OverlayerRuntime : IDisposable
         _ui.Show(Snapshot(), _server.IsRunning, _server.Url);
     }
 
-    private void OnStartServerRequested(object sender, EventArgs e)
+    private void OnStartServerRequested()
     {
         try
         {
@@ -99,56 +278,78 @@ public sealed class OverlayerRuntime : IDisposable
         }
     }
 
-    private void OnStopServerRequested(object sender, EventArgs e)
+    private void OnStopServerRequested()
     {
         _server.Stop();
         _ui.SetServerState(false, _server.Url);
         _log("Server stopped.");
     }
 
-    private void OnOverlayChanged(object sender, OverlayItemEventArgs e)
+    private void OnOverlayChanged(string json)
     {
+        var changed = DeserializeItem(json);
+        if (changed == null)
+            return;
+
         lock (_gate)
         {
-            var existing = _items.FirstOrDefault(x => x.Id == e.Item.Id);
+            var existing = _items.FirstOrDefault(x => x.Id == changed.Id);
             if (existing == null)
-                _items.Add(e.Item.Clone());
+                _items.Add(changed.Clone());
             else
-                CopyItem(e.Item, existing);
+                CopyItem(changed, existing);
 
             PersistAndRefreshLocked();
         }
     }
 
-    private void OnOverlayDeleted(object sender, OverlayItemEventArgs e)
+    private void OnOverlayDeleted(string json)
     {
+        var deleted = DeserializeItem(json);
+        if (deleted == null)
+            return;
+
         lock (_gate)
         {
-            _items.RemoveAll(x => x.Id == e.Item.Id);
+            _items.RemoveAll(x => x.Id == deleted.Id);
             PersistAndRefreshLocked();
         }
     }
 
-    private void OnOverlayOrderChanged(object sender, OverlayOrderEventArgs e)
+    private void OnOverlayOrderChanged(string json)
     {
+        List<OverlayRecord> requested;
+        try { requested = JsonConvert.DeserializeObject<List<OverlayRecord>>(json) ?? new List<OverlayRecord>(); }
+        catch { return; }
+
         lock (_gate)
         {
             var byId = _items.ToDictionary(x => x.Id, x => x);
-            var ordered = new List<OverlayItem>();
+            var ordered = new List<OverlayRecord>();
 
-            foreach (var requested in e.Items)
+            foreach (var item in requested)
             {
-                OverlayItem current;
-                if (byId.TryGetValue(requested.Id, out current))
+                OverlayRecord current;
+                if (item != null && byId.TryGetValue(item.Id, out current))
                 {
                     ordered.Add(current);
-                    byId.Remove(requested.Id);
+                    byId.Remove(item.Id);
                 }
             }
 
             ordered.AddRange(byId.Values);
             _items = ordered;
             PersistAndRefreshLocked();
+        }
+    }
+
+    private OverlayRecord DeserializeItem(string json)
+    {
+        try { return JsonConvert.DeserializeObject<OverlayRecord>(json); }
+        catch (Exception ex)
+        {
+            _logError("Unable to parse UI update: " + ex.Message);
+            return null;
         }
     }
 
@@ -166,13 +367,13 @@ public sealed class OverlayerRuntime : IDisposable
         _server.UpdateItems(_items.Select(x => x.Clone()).ToList());
     }
 
-    private List<OverlayItem> Snapshot()
+    private List<OverlayRecord> Snapshot()
     {
         lock (_gate)
             return _items.Select(x => x.Clone()).ToList();
     }
 
-    private static void CopyItem(OverlayItem source, OverlayItem target)
+    private static void CopyItem(OverlayRecord source, OverlayRecord target)
     {
         target.Name = source.Name;
         target.Url = source.Url;
@@ -181,12 +382,13 @@ public sealed class OverlayerRuntime : IDisposable
         target.Top = source.Top;
         target.Left = source.Left;
         target.Enabled = source.Enabled;
+        target.SourceKind = source.SourceKind;
     }
 
     private void ThrowIfDisposed()
     {
         if (_disposed)
-            throw new ObjectDisposedException(nameof(OverlayerRuntime));
+            throw new ObjectDisposedException("OverlayerRuntime");
     }
 
     public void Dispose()
@@ -195,13 +397,42 @@ public sealed class OverlayerRuntime : IDisposable
             return;
 
         _disposed = true;
-        _ui.StartServerRequested -= OnStartServerRequested;
-        _ui.StopServerRequested -= OnStopServerRequested;
-        _ui.OverlayChanged -= OnOverlayChanged;
-        _ui.OverlayDeleted -= OnOverlayDeleted;
-        _ui.OverlayOrderChanged -= OnOverlayOrderChanged;
+        _ui.StartServerRequested = null;
+        _ui.StopServerRequested = null;
+        _ui.OverlayChanged = null;
+        _ui.OverlayDeleted = null;
+        _ui.OverlayOrderChanged = null;
         _ui.Dispose();
         _server.Dispose();
+    }
+}
+
+public sealed class OverlayRecord
+{
+    public string Id { get; set; }
+    public string Name { get; set; }
+    public string Url { get; set; }
+    public string Width { get; set; }
+    public string Height { get; set; }
+    public string Top { get; set; }
+    public string Left { get; set; }
+    public bool Enabled { get; set; }
+    public string SourceKind { get; set; }
+
+    public OverlayRecord Clone()
+    {
+        return new OverlayRecord
+        {
+            Id = Id,
+            Name = Name,
+            Url = Url,
+            Width = Width,
+            Height = Height,
+            Top = Top,
+            Left = Left,
+            Enabled = Enabled,
+            SourceKind = SourceKind
+        };
     }
 }
 
@@ -215,7 +446,7 @@ public sealed class OverlayerConfigStore
         _path = Path.Combine(folder, "listview.json");
     }
 
-    public List<OverlayItem> Load(Action<string> logError)
+    public List<OverlayRecord> Load(Action<string> logError)
     {
         var result = new List<OrderedOverlay>();
 
@@ -228,12 +459,12 @@ public sealed class OverlayerConfigStore
             if (!File.Exists(_path))
             {
                 File.WriteAllText(_path, "{}", Encoding.UTF8);
-                return new List<OverlayItem>();
+                return new List<OverlayRecord>();
             }
 
             var json = File.ReadAllText(_path, Encoding.UTF8);
             if (string.IsNullOrWhiteSpace(json))
-                return new List<OverlayItem>();
+                return new List<OverlayRecord>();
 
             var data = JsonConvert.DeserializeObject<LegacyListViewData>(json) ?? new LegacyListViewData();
             Append(result, data.Enabled, true, 0);
@@ -249,11 +480,11 @@ public sealed class OverlayerConfigStore
         {
             if (logError != null)
                 logError("Unable to load " + _path + ": " + ex.Message);
-            return new List<OverlayItem>();
+            return new List<OverlayRecord>();
         }
     }
 
-    public void Save(IList<OverlayItem> items)
+    public void Save(IList<OverlayRecord> items)
     {
         var directory = Path.GetDirectoryName(_path);
         if (!Directory.Exists(directory))
@@ -306,7 +537,7 @@ public sealed class OverlayerConfigStore
             {
                 Order = order,
                 FallbackOrder = fallbackOffset + i,
-                Item = new OverlayItem
+                Item = new OverlayRecord
                 {
                     Id = Get(row, "Id", Guid.NewGuid().ToString("N")),
                     Name = Get(row, "Name", "Overlay"),
@@ -315,7 +546,8 @@ public sealed class OverlayerConfigStore
                     Width = Get(row, "Width", "100%"),
                     Top = Get(row, "Top", "0px"),
                     Left = Get(row, "Left", "0px"),
-                    Enabled = enabled
+                    Enabled = enabled,
+                    SourceKind = "Auto"
                 }
             });
         }
@@ -331,7 +563,7 @@ public sealed class OverlayerConfigStore
     {
         public int Order { get; set; }
         public int FallbackOrder { get; set; }
-        public OverlayItem Item { get; set; }
+        public OverlayRecord Item { get; set; }
     }
 
     public sealed class LegacyListViewData
@@ -403,8 +635,6 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
       frame.style.height = item.height;
       frame.style.top = item.top;
       frame.style.left = item.left;
-
-      // appendChild only when state changed; this preserves configured z-order.
       root.appendChild(frame);
     }
 
@@ -435,12 +665,12 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
     public string Url { get { return RootUrl; } }
     public bool IsRunning { get; private set; }
 
-    public void UpdateItems(IList<OverlayItem> items)
+    public void UpdateItems(IList<OverlayRecord> items)
     {
         var state = new List<Dictionary<string, string>>();
         var localRoots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var item in items ?? new List<OverlayItem>())
+        foreach (var item in items ?? new List<OverlayRecord>())
         {
             if (!item.Enabled || string.IsNullOrWhiteSpace(item.Url))
                 continue;
