@@ -156,15 +156,15 @@
 
             <StackPanel Grid.Row="0" Margin="0,0,0,16">
               <TextBlock Text="Overlay settings" FontWeight="SemiBold" FontSize="17" />
-              <TextBlock Text="One compositor, one OBS Browser Source." Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,4,0,0" />
+              <TextBlock Text="Changes save automatically after you stop editing." Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,4,0,0" />
             </StackPanel>
 
             <TextBlock Grid.Row="1" Text="Name" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
-            <TextBox Grid.Row="2" x:Name="NameBox" Margin="0,0,0,12" />
+            <TextBox Grid.Row="2" x:Name="NameBox" Margin="0,0,0,12" TextChanged="EditorField_TextChanged" />
 
             <StackPanel Grid.Row="3" Margin="0,0,0,12">
               <TextBlock Text="URL or local file URL" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
-              <TextBox x:Name="UrlBox" />
+              <TextBox x:Name="UrlBox" TextChanged="EditorField_TextChanged" />
             </StackPanel>
 
             <Grid Grid.Row="4" Margin="0,0,0,12">
@@ -175,11 +175,11 @@
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0">
                 <TextBlock Text="Width" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
-                <TextBox x:Name="WidthBox" />
+                <TextBox x:Name="WidthBox" TextChanged="EditorField_TextChanged" />
               </StackPanel>
               <StackPanel Grid.Column="2">
                 <TextBlock Text="Height" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
-                <TextBox x:Name="HeightBox" />
+                <TextBox x:Name="HeightBox" TextChanged="EditorField_TextChanged" />
               </StackPanel>
             </Grid>
 
@@ -190,19 +190,28 @@
                 <ColumnDefinition Width="*" />
               </Grid.ColumnDefinitions>
               <StackPanel Grid.Column="0">
-                <TextBlock Text="Left (x)" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
-                <TextBox x:Name="LeftBox" />
+                <TextBlock Text="Left (x) · px" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
+                <TextBox x:Name="LeftBox" TextChanged="EditorField_TextChanged" />
+                <Slider x:Name="LeftSlider" Minimum="-1920" Maximum="3840" SmallChange="1" LargeChange="50"
+                        IsMoveToPointEnabled="True" Margin="0,8,0,0" ValueChanged="PositionSlider_ValueChanged"
+                        ToolTip="X position in pixels. Range: -1920 to 3840." />
               </StackPanel>
               <StackPanel Grid.Column="2">
-                <TextBlock Text="Top (y)" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
-                <TextBox x:Name="TopBox" />
+                <TextBlock Text="Top (y) · px" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" Margin="0,0,0,5" />
+                <TextBox x:Name="TopBox" TextChanged="EditorField_TextChanged" />
+                <Slider x:Name="TopSlider" Minimum="-1080" Maximum="2160" SmallChange="1" LargeChange="50"
+                        IsMoveToPointEnabled="True" Margin="0,8,0,0" ValueChanged="PositionSlider_ValueChanged"
+                        ToolTip="Y position in pixels. Range: -1080 to 2160." />
               </StackPanel>
             </Grid>
 
             <Grid Grid.Row="7">
-              <CheckBox x:Name="EnabledBox" Content="Enabled" VerticalAlignment="Center" />
-              <Button Content="Save overlay" Style="{StaticResource Crntly.PrimaryButton}"
-                      HorizontalAlignment="Right" Click="Save_Click" />
+              <CheckBox x:Name="EnabledBox" Content="Enabled" VerticalAlignment="Center"
+                        Checked="EditorEnabledChanged" Unchecked="EditorEnabledChanged" />
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Ellipse x:Name="EditorStatusDot" Width="7" Height="7" Fill="{StaticResource Crntly.TextMuted}" Margin="0,0,7,0" />
+                <TextBlock x:Name="EditorStatusText" Text="Autosave" Foreground="{StaticResource Crntly.TextMuted}" FontSize="11" />
+              </StackPanel>
             </Grid>
           </Grid>
         </Border>
