@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 using Newtonsoft.Json;
 
 // CRNTLY Overlayer v2 preview
@@ -12,16 +13,15 @@ using Newtonsoft.Json;
 //   Newtonsoft.Json.dll
 //
 // CRNTLY.StreamerBot.UI.dll is intentionally NOT a compile-time reference.
-// The script discovers and loads it dynamically from <Streamer.bot>\dlls so
-// a future first-run bootstrap can install/update the shared CRNTLY component.
+// The script discovers and loads it dynamically from <Streamer.bot>\dlls.
 public class CPHInline
 {
     private OverlayerRuntime _runtime;
 
     public void Init()
     {
-        // Delay UI dependency resolution until Execute(). This lets the action compile
-        // and display bootstrap guidance even when the CRNTLY DLL is not installed yet.
+        // Dependency resolution is delayed until Execute() so the action can compile
+        // and show bootstrap guidance even when the CRNTLY DLL is not installed yet.
     }
 
     public bool Execute()
@@ -44,11 +44,11 @@ public class CPHInline
 
     public void Dispose()
     {
-        if (_runtime != null)
-        {
-            _runtime.Dispose();
-            _runtime = null;
-        }
+        if (_runtime == null)
+            return;
+
+        _runtime.Dispose();
+        _runtime = null;
     }
 }
 
@@ -84,7 +84,9 @@ public static class CrntlyDependencyBootstrap
             var assembly = FindLoadedAssembly() ?? Assembly.LoadFrom(dllPath);
             var bridgeType = assembly.GetType(BridgeTypeName, false);
             if (bridgeType == null)
-                throw new InvalidOperationException("The installed CRNTLY UI component does not contain " + BridgeTypeName + ". Rebuild/deploy the latest DLL.");
+                throw new InvalidOperationException(
+                    "The installed CRNTLY UI component does not contain " + BridgeTypeName +
+                    ". Rebuild/deploy the latest DLL.");
 
             var bridge = Activator.CreateInstance(bridgeType);
             ui = new OverlayerUiProxy(bridgeType, bridge);
@@ -100,6 +102,7 @@ public static class CrntlyDependencyBootstrap
                 "CRNTLY Overlayer could not load its UI component.\n\n" +
                 ex.Message + "\n\n" +
                 "Re-run build-ui.ps1, then run the action again.";
+
             ShowBootstrapMessage(message, "CRNTLY Overlayer - Load Error");
             if (logError != null)
                 logError("Unable to load CRNTLY UI: " + ex);
@@ -113,17 +116,24 @@ public static class CrntlyDependencyBootstrap
         {
             try
             {
-                if (string.Equals(assembly.GetName().Name, "CRNTLY.StreamerBot.UI", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(
+                    assembly.GetName().Name,
+                    "CRNTLY.StreamerBot.UI",
+                    StringComparison.OrdinalIgnoreCase))
                     return assembly;
             }
-            catch { }
+            catch
+            {
+            }
         }
+
         return null;
     }
 
     private static void ShowBootstrapMessage(string message, string title)
     {
-        // Use reflection so System.Windows.Forms.dll is not another required script reference.
+        // Reflection keeps System.Windows.Forms.dll from becoming a required
+        // compile-time reference for the Streamer.bot script.
         try
         {
             var type = Type.GetType("System.Windows.Forms.MessageBox, System.Windows.Forms", false);
@@ -134,7 +144,9 @@ public static class CrntlyDependencyBootstrap
             if (method != null)
                 method.Invoke(null, new object[] { message, title });
         }
-        catch { }
+        catch
+        {
+        }
     }
 }
 
@@ -193,12 +205,21 @@ public sealed class OverlayerUiProxy : IDisposable
 
     public void Show(IList<OverlayRecord> items, bool serverRunning, string serverUrl)
     {
-        _showJson.Invoke(_bridge, new object[] { JsonConvert.SerializeObject(items ?? new List<OverlayRecord>()), serverRunning, serverUrl });
+        _showJson.Invoke(
+            _bridge,
+            new object[]
+            {
+                JsonConvert.SerializeObject(items ?? new List<OverlayRecord>()),
+                serverRunning,
+                serverUrl
+            });
     }
 
     public void SetItems(IList<OverlayRecord> items)
     {
-        _setItemsJson.Invoke(_bridge, new object[] { JsonConvert.SerializeObject(items ?? new List<OverlayRecord>()) });
+        _setItemsJson.Invoke(
+            _bridge,
+            new object[] { JsonConvert.SerializeObject(items ?? new List<OverlayRecord>()) });
     }
 
     public void SetServerState(bool running, string serverUrl)
@@ -219,12 +240,19 @@ public sealed class OverlayerUiProxy : IDisposable
         var property = _bridgeType.GetProperty(propertyName);
         if (property == null || !property.CanWrite)
             throw new MissingMemberException(_bridgeType.FullName, propertyName);
+
         property.SetValue(_bridge, callback, null);
     }
 
     public void Dispose()
     {
-        try { _dispose.Invoke(_bridge, null); } catch { }
+        try
+        {
+            _dispose.Invoke(_bridge, null);
+        }
+        catch
+        {
+        }
     }
 }
 
@@ -244,8 +272,10 @@ public sealed class OverlayerRuntime : IDisposable
         _log = log ?? delegate { };
         _logError = logError ?? delegate { };
         _ui = ui ?? throw new ArgumentNullException("ui");
+
         _configStore = new OverlayerConfigStore();
         _items = _configStore.Load(_logError);
+
         _server = new CompositeOverlayServer(_logError);
         _server.UpdateItems(Snapshot());
 
@@ -282,7 +312,7 @@ public sealed class OverlayerRuntime : IDisposable
     {
         _server.Stop();
         _ui.SetServerState(false, _server.Url);
-        _log("Server stopped.");
+        _log("Server stopped and compositor output cleared.");
     }
 
     private void OnOverlayChanged(string json)
@@ -297,16 +327,19 @@ public sealed class OverlayerRuntime : IDisposable
             {
                 var preview = _items.Select(x => x.Clone()).ToList();
                 var previewItem = preview.FirstOrDefault(x => x.Id == changed.Id);
+
                 if (previewItem != null)
                 {
                     CopyItem(changed, previewItem);
                     previewItem.IsPreview = false;
                     _server.UpdateItems(preview);
                 }
+
                 return;
             }
 
             changed.IsPreview = false;
+
             var existing = _items.FirstOrDefault(x => x.Id == changed.Id);
             if (existing == null)
                 _items.Add(changed.Clone());
@@ -333,8 +366,17 @@ public sealed class OverlayerRuntime : IDisposable
     private void OnOverlayOrderChanged(string json)
     {
         List<OverlayRecord> requested;
-        try { requested = JsonConvert.DeserializeObject<List<OverlayRecord>>(json) ?? new List<OverlayRecord>(); }
-        catch { return; }
+
+        try
+        {
+            requested =
+                JsonConvert.DeserializeObject<List<OverlayRecord>>(json) ??
+                new List<OverlayRecord>();
+        }
+        catch
+        {
+            return;
+        }
 
         lock (_gate)
         {
@@ -344,6 +386,7 @@ public sealed class OverlayerRuntime : IDisposable
             foreach (var item in requested)
             {
                 OverlayRecord current;
+
                 if (item != null && byId.TryGetValue(item.Id, out current))
                 {
                     ordered.Add(current);
@@ -359,7 +402,10 @@ public sealed class OverlayerRuntime : IDisposable
 
     private OverlayRecord DeserializeItem(string json)
     {
-        try { return JsonConvert.DeserializeObject<OverlayRecord>(json); }
+        try
+        {
+            return JsonConvert.DeserializeObject<OverlayRecord>(json);
+        }
         catch (Exception ex)
         {
             _logError("Unable to parse UI update: " + ex.Message);
@@ -412,13 +458,16 @@ public sealed class OverlayerRuntime : IDisposable
             return;
 
         _disposed = true;
+
         _ui.StartServerRequested = null;
         _ui.StopServerRequested = null;
         _ui.OverlayChanged = null;
         _ui.OverlayDeleted = null;
         _ui.OverlayOrderChanged = null;
-        _ui.Dispose();
+
+        // Clear the OBS/browser compositor before tearing down the UI host.
         _server.Dispose();
+        _ui.Dispose();
     }
 }
 
@@ -483,7 +532,10 @@ public sealed class OverlayerConfigStore
             if (string.IsNullOrWhiteSpace(json))
                 return new List<OverlayRecord>();
 
-            var data = JsonConvert.DeserializeObject<LegacyListViewData>(json) ?? new LegacyListViewData();
+            var data =
+                JsonConvert.DeserializeObject<LegacyListViewData>(json) ??
+                new LegacyListViewData();
+
             Append(result, data.Enabled, true, 0);
             Append(result, data.Disabled, false, result.Count);
 
@@ -497,6 +549,7 @@ public sealed class OverlayerConfigStore
         {
             if (logError != null)
                 logError("Unable to load " + _path + ": " + ex.Message);
+
             return new List<OverlayRecord>();
         }
     }
@@ -516,6 +569,7 @@ public sealed class OverlayerConfigStore
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
+
             var row = new Dictionary<string, string>
             {
                 { "Id", item.Id },
@@ -534,11 +588,17 @@ public sealed class OverlayerConfigStore
                 data.Disabled.Add(row);
         }
 
-        File.WriteAllText(_path, JsonConvert.SerializeObject(data, Formatting.Indented), Encoding.UTF8);
+        File.WriteAllText(
+            _path,
+            JsonConvert.SerializeObject(data, Formatting.Indented),
+            Encoding.UTF8);
     }
 
-    private static void Append(List<OrderedOverlay> output, List<Dictionary<string, string>> rows,
-        bool enabled, int fallbackOffset)
+    private static void Append(
+        List<OrderedOverlay> output,
+        List<Dictionary<string, string>> rows,
+        bool enabled,
+        int fallbackOffset)
     {
         if (rows == null)
             return;
@@ -547,34 +607,41 @@ public sealed class OverlayerConfigStore
         {
             var row = rows[i] ?? new Dictionary<string, string>();
             int order;
+
             if (!int.TryParse(Get(row, "Order", null), out order))
                 order = int.MaxValue;
 
-            output.Add(new OrderedOverlay
-            {
-                Order = order,
-                FallbackOrder = fallbackOffset + i,
-                Item = new OverlayRecord
+            output.Add(
+                new OrderedOverlay
                 {
-                    Id = Get(row, "Id", Guid.NewGuid().ToString("N")),
-                    Name = Get(row, "Name", "Overlay"),
-                    Url = Get(row, "URL", string.Empty),
-                    Height = Get(row, "Height", "100%"),
-                    Width = Get(row, "Width", "100%"),
-                    Top = Get(row, "Top", "0px"),
-                    Left = Get(row, "Left", "0px"),
-                    Enabled = enabled,
-                    SourceKind = "Auto",
-                    IsPreview = false
-                }
-            });
+                    Order = order,
+                    FallbackOrder = fallbackOffset + i,
+                    Item = new OverlayRecord
+                    {
+                        Id = Get(row, "Id", Guid.NewGuid().ToString("N")),
+                        Name = Get(row, "Name", "Overlay"),
+                        Url = Get(row, "URL", string.Empty),
+                        Height = Get(row, "Height", "100%"),
+                        Width = Get(row, "Width", "100%"),
+                        Top = Get(row, "Top", "0px"),
+                        Left = Get(row, "Left", "0px"),
+                        Enabled = enabled,
+                        SourceKind = "Auto",
+                        IsPreview = false
+                    }
+                });
         }
     }
 
-    private static string Get(Dictionary<string, string> row, string key, string fallback)
+    private static string Get(
+        Dictionary<string, string> row,
+        string key,
+        string fallback)
     {
         string value;
-        return row.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value) ? value : fallback;
+        return row.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : fallback;
     }
 
     private sealed class OrderedOverlay
@@ -599,11 +666,14 @@ public sealed class CompositeOverlayServer : IDisposable
 
     private readonly object _gate = new object();
     private readonly Action<string> _logError;
-    private readonly List<HttpListenerResponse> _eventClients = new List<HttpListenerResponse>();
+    private readonly List<HttpListenerResponse> _eventClients =
+        new List<HttpListenerResponse>();
+
     private HttpListener _listener;
     private HttpListener _localListener;
     private string _stateJson = "[]";
-    private Dictionary<string, string> _localRoots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, string> _localRoots =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     private static readonly string ShellHtml = @"<!doctype html>
 <html>
@@ -623,6 +693,8 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
 (() => {
   const root = document.getElementById('crntly-root');
   let lastState = '';
+  let disconnectTimer = null;
+  let events = null;
 
   function applyState(text) {
     if (text === lastState) return;
@@ -630,11 +702,13 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
 
     let items;
     try { items = JSON.parse(text); } catch (_) { return; }
+
     const keep = new Set();
 
     for (const item of items) {
       const domId = 'ov-' + item.id;
       keep.add(domId);
+
       let frame = document.getElementById(domId);
       if (!frame) {
         frame = document.createElement('iframe');
@@ -654,6 +728,8 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
       frame.style.height = item.height;
       frame.style.top = item.top;
       frame.style.left = item.left;
+
+      // Reappend only on changed state to preserve configured z-order.
       root.appendChild(frame);
     }
 
@@ -662,23 +738,61 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
     }
   }
 
+  function clearOutput() {
+    applyState('[]');
+  }
+
   async function sync() {
     try {
       const response = await fetch('/state', { cache: 'no-store' });
       if (response.ok) applyState(await response.text());
-    } catch (_) { }
+    } catch (_) {
+      // The SSE disconnect handler below owns shutdown clearing.
+    }
   }
 
   sync();
 
   if (window.EventSource) {
     try {
-      const events = new EventSource('/events');
+      events = new EventSource('/events');
+
+      events.onopen = () => {
+        if (disconnectTimer) {
+          clearTimeout(disconnectTimer);
+          disconnectTimer = null;
+        }
+      };
+
       events.onmessage = event => applyState(event.data);
-      // EventSource reconnects automatically. The slow poll below is only a safety net.
-    } catch (_) { }
+
+      events.addEventListener('shutdown', () => {
+        if (disconnectTimer) {
+          clearTimeout(disconnectTimer);
+          disconnectTimer = null;
+        }
+
+        clearOutput();
+        // Leave EventSource alive so it can reconnect automatically if the
+        // server is started again without refreshing the OBS Browser Source.
+      });
+
+      events.onerror = () => {
+        // If Streamer.bot is stopped, recompiled, or crashes, do not leave
+        // the last rendered overlay frozen in OBS. Give a local reconnect a
+        // moment, then blank the compositor if the connection is still down.
+        if (disconnectTimer) clearTimeout(disconnectTimer);
+
+        disconnectTimer = setTimeout(() => {
+          if (!events || events.readyState !== EventSource.OPEN)
+            clearOutput();
+        }, 350);
+      };
+    } catch (_) {
+    }
   }
 
+  // Safety resync. Live changes normally arrive through SSE immediately.
   setInterval(sync, 5000);
 })();
 </script>
@@ -690,21 +804,27 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         _logError = logError ?? delegate { };
     }
 
-    public string Url { get { return RootUrl; } }
+    public string Url
+    {
+        get { return RootUrl; }
+    }
+
     public bool IsRunning { get; private set; }
 
     public void UpdateItems(IList<OverlayRecord> items)
     {
         var state = new List<Dictionary<string, string>>();
-        var localRoots = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var localRoots =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in items ?? new List<OverlayRecord>())
         {
             if (!item.Enabled || string.IsNullOrWhiteSpace(item.Url))
                 continue;
 
-            string source = item.Url.Trim();
+            var source = item.Url.Trim();
             Uri uri;
+
             if (!Uri.TryCreate(source, UriKind.Absolute, out uri))
                 continue;
 
@@ -713,25 +833,35 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
                 var localPath = Path.GetFullPath(uri.LocalPath);
                 var directory = Path.GetDirectoryName(localPath);
                 var fileName = Path.GetFileName(localPath);
-                if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(fileName))
+
+                if (string.IsNullOrWhiteSpace(directory) ||
+                    string.IsNullOrWhiteSpace(fileName))
                     continue;
 
                 localRoots[item.Id] = directory;
-                source = LocalUrl + "local/" + Uri.EscapeDataString(item.Id) + "/" + Uri.EscapeDataString(fileName);
+
+                source =
+                    LocalUrl +
+                    "local/" +
+                    Uri.EscapeDataString(item.Id) +
+                    "/" +
+                    Uri.EscapeDataString(fileName);
             }
 
-            state.Add(new Dictionary<string, string>
-            {
-                { "id", item.Id },
-                { "src", source },
-                { "width", SafeCss(item.Width, "100%") },
-                { "height", SafeCss(item.Height, "100%") },
-                { "top", SafeCss(item.Top, "0px") },
-                { "left", SafeCss(item.Left, "0px") }
-            });
+            state.Add(
+                new Dictionary<string, string>
+                {
+                    { "id", item.Id },
+                    { "src", source },
+                    { "width", SafeCss(item.Width, "100%") },
+                    { "height", SafeCss(item.Height, "100%") },
+                    { "top", SafeCss(item.Top, "0px") },
+                    { "left", SafeCss(item.Left, "0px") }
+                });
         }
 
         var json = JsonConvert.SerializeObject(state, Formatting.None);
+
         lock (_gate)
         {
             _stateJson = json;
@@ -748,6 +878,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
 
         HttpListener main = null;
         HttpListener local = null;
+
         try
         {
             main = new HttpListener();
@@ -767,8 +898,24 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         }
         catch
         {
-            try { if (main != null) main.Close(); } catch { }
-            try { if (local != null) local.Close(); } catch { }
+            try
+            {
+                if (main != null)
+                    main.Close();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                if (local != null)
+                    local.Close();
+            }
+            catch
+            {
+            }
+
             _listener = null;
             _localListener = null;
             IsRunning = false;
@@ -778,13 +925,45 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
 
     public void Stop()
     {
-        IsRunning = false;
         var main = _listener;
         var local = _localListener;
+
+        if (!IsRunning && main == null && local == null)
+            return;
+
+        // Preserve the current saved overlay configuration, but make the
+        // currently loaded Browser Source transparent before the server dies.
+        List<HttpListenerResponse> eventClients;
+
+        lock (_gate)
+        {
+            _stateJson = "[]";
+            _localRoots =
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            eventClients = _eventClients.ToList();
+        }
+
+        foreach (var response in eventClients)
+        {
+            try
+            {
+                WriteEvent(response, "[]", "shutdown");
+            }
+            catch
+            {
+                RemoveEventClient(response);
+            }
+        }
+
+        // WriteEvent flushes immediately. A short grace period gives OBS/CEF a
+        // chance to run the shutdown handler before its local connection closes.
+        if (eventClients.Count > 0)
+            Thread.Sleep(100);
+
+        IsRunning = false;
         _listener = null;
         _localListener = null;
 
-        List<HttpListenerResponse> eventClients;
         lock (_gate)
         {
             eventClients = _eventClients.ToList();
@@ -794,8 +973,23 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         foreach (var response in eventClients)
             SafeClose(response);
 
-        try { if (main != null) main.Close(); } catch { }
-        try { if (local != null) local.Close(); } catch { }
+        try
+        {
+            if (main != null)
+                main.Close();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            if (local != null)
+                local.Close();
+        }
+        catch
+        {
+        }
     }
 
     private void OnMainContext(IAsyncResult ar)
@@ -805,6 +999,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
             return;
 
         HttpListenerContext context;
+
         try
         {
             context = listener.EndGetContext(ar);
@@ -815,6 +1010,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         }
 
         Rearm(listener, OnMainContext);
+
         try
         {
             HandleMain(context);
@@ -833,6 +1029,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
             return;
 
         HttpListenerContext context;
+
         try
         {
             context = listener.EndGetContext(ar);
@@ -843,6 +1040,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         }
 
         Rearm(listener, OnLocalContext);
+
         try
         {
             HandleLocal(context);
@@ -861,24 +1059,37 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
             if (listener.IsListening)
                 listener.BeginGetContext(callback, listener);
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private void HandleMain(HttpListenerContext context)
     {
         var path = context.Request.Url.AbsolutePath;
+
         if (path == "/" || string.IsNullOrEmpty(path))
         {
-            WriteText(context, ShellHtml, "text/html; charset=utf-8", HttpStatusCode.OK);
+            WriteText(
+                context,
+                ShellHtml,
+                "text/html; charset=utf-8",
+                HttpStatusCode.OK);
             return;
         }
 
         if (string.Equals(path, "/state", StringComparison.OrdinalIgnoreCase))
         {
             string json;
+
             lock (_gate)
                 json = _stateJson;
-            WriteText(context, json, "application/json; charset=utf-8", HttpStatusCode.OK);
+
+            WriteText(
+                context,
+                json,
+                "application/json; charset=utf-8",
+                HttpStatusCode.OK);
             return;
         }
 
@@ -890,16 +1101,25 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
 
         if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
         {
-            WriteText(context, "ok", "text/plain; charset=utf-8", HttpStatusCode.OK);
+            WriteText(
+                context,
+                "ok",
+                "text/plain; charset=utf-8",
+                HttpStatusCode.OK);
             return;
         }
 
-        WriteText(context, "Not found", "text/plain; charset=utf-8", HttpStatusCode.NotFound);
+        WriteText(
+            context,
+            "Not found",
+            "text/plain; charset=utf-8",
+            HttpStatusCode.NotFound);
     }
 
     private void HandleEventStream(HttpListenerContext context)
     {
         var response = context.Response;
+
         response.StatusCode = (int)HttpStatusCode.OK;
         response.ContentType = "text/event-stream; charset=utf-8";
         response.SendChunked = true;
@@ -907,6 +1127,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         response.Headers["Cache-Control"] = "no-cache";
 
         string json;
+
         lock (_gate)
         {
             json = _stateJson;
@@ -915,7 +1136,8 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
 
         try
         {
-            WriteEvent(response, json);
+            WriteRetry(response, 750);
+            WriteEvent(response, json, null);
         }
         catch
         {
@@ -929,6 +1151,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
             return;
 
         List<HttpListenerResponse> clients;
+
         lock (_gate)
             clients = _eventClients.ToList();
 
@@ -936,7 +1159,7 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         {
             try
             {
-                WriteEvent(response, json);
+                WriteEvent(response, json, null);
             }
             catch
             {
@@ -945,9 +1168,34 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         }
     }
 
-    private static void WriteEvent(HttpListenerResponse response, string json)
+    private static void WriteRetry(HttpListenerResponse response, int milliseconds)
     {
-        var buffer = Encoding.UTF8.GetBytes("data: " + (json ?? "[]") + "\n\n");
+        var buffer =
+            Encoding.UTF8.GetBytes(
+                "retry: " +
+                Math.Max(250, milliseconds) +
+                "\n\n");
+
+        response.OutputStream.Write(buffer, 0, buffer.Length);
+        response.OutputStream.Flush();
+    }
+
+    private static void WriteEvent(
+        HttpListenerResponse response,
+        string json,
+        string eventName)
+    {
+        var builder = new StringBuilder();
+
+        if (!string.IsNullOrWhiteSpace(eventName))
+            builder.Append("event: ").Append(eventName).Append('\n');
+
+        builder
+            .Append("data: ")
+            .Append(json ?? "[]")
+            .Append("\n\n");
+
+        var buffer = Encoding.UTF8.GetBytes(builder.ToString());
         response.OutputStream.Write(buffer, 0, buffer.Length);
         response.OutputStream.Flush();
     }
@@ -956,53 +1204,93 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
     {
         lock (_gate)
             _eventClients.Remove(response);
+
         SafeClose(response);
     }
 
     private void HandleLocal(HttpListenerContext context)
     {
         var path = context.Request.Url.AbsolutePath;
+
         if (!path.StartsWith(LocalPrefix, StringComparison.OrdinalIgnoreCase))
         {
-            WriteText(context, "Not found", "text/plain; charset=utf-8", HttpStatusCode.NotFound);
+            WriteText(
+                context,
+                "Not found",
+                "text/plain; charset=utf-8",
+                HttpStatusCode.NotFound);
             return;
         }
 
         var remainder = path.Substring(LocalPrefix.Length);
         var separator = remainder.IndexOf('/');
+
         if (separator <= 0 || separator == remainder.Length - 1)
         {
-            WriteText(context, "Not found", "text/plain; charset=utf-8", HttpStatusCode.NotFound);
+            WriteText(
+                context,
+                "Not found",
+                "text/plain; charset=utf-8",
+                HttpStatusCode.NotFound);
             return;
         }
 
-        var id = Uri.UnescapeDataString(remainder.Substring(0, separator));
-        var relative = Uri.UnescapeDataString(remainder.Substring(separator + 1)).Replace('/', Path.DirectorySeparatorChar);
+        var id =
+            Uri.UnescapeDataString(remainder.Substring(0, separator));
+
+        var relative =
+            Uri.UnescapeDataString(remainder.Substring(separator + 1))
+                .Replace('/', Path.DirectorySeparatorChar);
 
         string root;
+
         lock (_gate)
         {
             if (!_localRoots.TryGetValue(id, out root))
             {
-                WriteText(context, "Not found", "text/plain; charset=utf-8", HttpStatusCode.NotFound);
+                WriteText(
+                    context,
+                    "Not found",
+                    "text/plain; charset=utf-8",
+                    HttpStatusCode.NotFound);
                 return;
             }
         }
 
-        var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                             + Path.DirectorySeparatorChar;
-        var candidate = Path.GetFullPath(Path.Combine(normalizedRoot, relative));
+        var normalizedRoot =
+            Path.GetFullPath(root)
+                .TrimEnd(
+                    Path.DirectorySeparatorChar,
+                    Path.AltDirectorySeparatorChar) +
+            Path.DirectorySeparatorChar;
 
-        if (!candidate.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase) || !File.Exists(candidate))
+        var candidate =
+            Path.GetFullPath(Path.Combine(normalizedRoot, relative));
+
+        if (!candidate.StartsWith(
+                normalizedRoot,
+                StringComparison.OrdinalIgnoreCase) ||
+            !File.Exists(candidate))
         {
-            WriteText(context, "Not found", "text/plain; charset=utf-8", HttpStatusCode.NotFound);
+            WriteText(
+                context,
+                "Not found",
+                "text/plain; charset=utf-8",
+                HttpStatusCode.NotFound);
             return;
         }
 
         var response = context.Response;
+
         try
         {
-            using (var stream = new FileStream(candidate, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (
+                var stream =
+                    new FileStream(
+                        candidate,
+                        FileMode.Open,
+                        FileAccess.Read,
+                        FileShare.ReadWrite))
             {
                 response.StatusCode = (int)HttpStatusCode.OK;
                 response.ContentType = GetMimeType(candidate);
@@ -1010,10 +1298,14 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
                 response.Headers["Cache-Control"] = "no-cache";
                 response.Headers["Access-Control-Allow-Origin"] = "*";
 
-                if (!string.Equals(context.Request.HttpMethod, "HEAD", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(
+                        context.Request.HttpMethod,
+                        "HEAD",
+                        StringComparison.OrdinalIgnoreCase))
                 {
                     var buffer = new byte[64 * 1024];
                     int read;
+
                     while ((read = stream.Read(buffer, 0, buffer.Length)) > 0)
                         response.OutputStream.Write(buffer, 0, read);
                 }
@@ -1025,17 +1317,26 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         }
     }
 
-    private static void WriteText(HttpListenerContext context, string text, string contentType, HttpStatusCode status)
+    private static void WriteText(
+        HttpListenerContext context,
+        string text,
+        string contentType,
+        HttpStatusCode status)
     {
         var buffer = Encoding.UTF8.GetBytes(text ?? string.Empty);
         var response = context.Response;
+
         try
         {
             response.StatusCode = (int)status;
             response.ContentType = contentType;
             response.ContentLength64 = buffer.Length;
             response.Headers["Cache-Control"] = "no-store";
-            if (!string.Equals(context.Request.HttpMethod, "HEAD", StringComparison.OrdinalIgnoreCase))
+
+            if (!string.Equals(
+                    context.Request.HttpMethod,
+                    "HEAD",
+                    StringComparison.OrdinalIgnoreCase))
                 response.OutputStream.Write(buffer, 0, buffer.Length);
         }
         finally
@@ -1048,13 +1349,29 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
     {
         if (response == null)
             return;
-        try { response.OutputStream.Close(); } catch { }
-        try { response.Close(); } catch { }
+
+        try
+        {
+            response.OutputStream.Close();
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            response.Close();
+        }
+        catch
+        {
+        }
     }
 
     private static string SafeCss(string value, string fallback)
     {
-        return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        return string.IsNullOrWhiteSpace(value)
+            ? fallback
+            : value.Trim();
     }
 
     private static string GetMimeType(string path)
@@ -1062,27 +1379,47 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         switch (Path.GetExtension(path).ToLowerInvariant())
         {
             case ".html":
-            case ".htm": return "text/html; charset=utf-8";
-            case ".css": return "text/css; charset=utf-8";
-            case ".js": return "application/javascript; charset=utf-8";
-            case ".json": return "application/json; charset=utf-8";
-            case ".svg": return "image/svg+xml";
-            case ".png": return "image/png";
+            case ".htm":
+                return "text/html; charset=utf-8";
+            case ".css":
+                return "text/css; charset=utf-8";
+            case ".js":
+                return "application/javascript; charset=utf-8";
+            case ".json":
+                return "application/json; charset=utf-8";
+            case ".svg":
+                return "image/svg+xml";
+            case ".png":
+                return "image/png";
             case ".jpg":
-            case ".jpeg": return "image/jpeg";
-            case ".gif": return "image/gif";
-            case ".webp": return "image/webp";
-            case ".ico": return "image/x-icon";
-            case ".woff": return "font/woff";
-            case ".woff2": return "font/woff2";
-            case ".ttf": return "font/ttf";
-            case ".otf": return "font/otf";
-            case ".mp3": return "audio/mpeg";
-            case ".wav": return "audio/wav";
-            case ".ogg": return "audio/ogg";
-            case ".mp4": return "video/mp4";
-            case ".webm": return "video/webm";
-            default: return "application/octet-stream";
+            case ".jpeg":
+                return "image/jpeg";
+            case ".gif":
+                return "image/gif";
+            case ".webp":
+                return "image/webp";
+            case ".ico":
+                return "image/x-icon";
+            case ".woff":
+                return "font/woff";
+            case ".woff2":
+                return "font/woff2";
+            case ".ttf":
+                return "font/ttf";
+            case ".otf":
+                return "font/otf";
+            case ".mp3":
+                return "audio/mpeg";
+            case ".wav":
+                return "audio/wav";
+            case ".ogg":
+                return "audio/ogg";
+            case ".mp4":
+                return "video/mp4";
+            case ".webm":
+                return "video/webm";
+            default:
+                return "application/octet-stream";
         }
     }
 
