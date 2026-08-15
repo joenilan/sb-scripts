@@ -291,7 +291,27 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 _syncingPositionControls = false;
             }
 
+            PreviewPosition();
             ScheduleAutosave();
+        }
+
+        private void PreviewPosition()
+        {
+            var item = _editingItem;
+            if (item == null)
+                return;
+
+            string left;
+            string top;
+            if (!TryNormalizePosition(LeftBox.Text, "0px", out left) ||
+                !TryNormalizePosition(TopBox.Text, "0px", out top))
+                return;
+
+            var preview = item.Clone();
+            preview.Left = left;
+            preview.Top = top;
+            preview.IsPreview = true;
+            OverlayChanged?.Invoke(this, new OverlayItemEventArgs(preview));
         }
 
         private void ScheduleAutosave()
@@ -344,6 +364,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             item.Left = normalizedLeft;
             item.Top = normalizedTop;
             item.Enabled = EnabledBox.IsChecked == true;
+            item.IsPreview = false;
 
             OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
             OverlayList.Items.Refresh();
