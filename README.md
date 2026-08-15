@@ -7,13 +7,13 @@ C# scripts and reusable UI infrastructure for [Streamer.bot](https://streamer.bo
 | Script | Status | Description |
 | --- | --- | --- |
 | [`overlayer.cs`](overlayer.cs) | v1.0.0 / legacy baseline | Original **Overlay(er)**: combines multiple URLs into one OBS Browser Source with a WinForms control panel. |
-| [`overlay-er.cs`](overlay-er.cs) | **v2.0.0 / current** | Current **Overlay(er)** release: script-owned WPF layout/behavior, shared CRNTLY UI runtime, live compositor state, cleaner local-file routing, streaming I/O, dynamic DLL loading, autosave, live position preview, and Streamer.bot lifecycle cleanup. |
+| [`overlay-er.cs`](overlay-er.cs) | **v2.1.0 / current** | Current **Overlay(er)** release: script-owned WPF layout/behavior, shared CRNTLY UI runtime, live compositor state, persisted server auto-start, cleaner local-file routing, streaming I/O, dynamic DLL loading, autosave, live position preview, and Streamer.bot lifecycle cleanup. |
 
 ## CRNTLY Streamer.bot UI
 
 [`CRNTLY.StreamerBot.UI`](CRNTLY.StreamerBot.UI/) is the reusable WPF runtime/component library for CRNTLY Streamer.bot tools. It deliberately does not depend on Streamer.bot types and contains no **Overlay(er)**-specific window. Scripts keep ownership of their layout, `CPH`, platform/OBS integration, persistence and runtime behavior.
 
-The shared UI runtime is versioned independently from individual tools. The current runtime is **v1.0.0**; Overlay(er) v2.0.0 displays both its own version and the loaded UI assembly version in the window footer so stale script/DLL combinations are easy to spot.
+The shared UI runtime is versioned independently from individual tools. The current runtime is **v1.0.0**; Overlay(er) v2.1.0 displays both its own version and the loaded UI assembly version in the window footer so stale script/DLL combinations are easy to spot.
 
 Build on Windows:
 
@@ -35,13 +35,15 @@ You can provide the install location explicitly when needed:
 
 Streamer.bot's current external-editor guidance targets `net481` with WPF enabled, which is also the target used by this DLL.
 
-## Overlay(er) v2.0.0 bootstrap
+## Overlay(er) v2.1.0 bootstrap
 
 `overlay-er.cs` does **not** reference `CRNTLY.StreamerBot.UI.dll` at compile time. The script owns its **Overlay(er)** XAML and UI behavior, then dynamically loads the generic `CrntlyScriptWindowBridge` from the shared DLL for WPF hosting/theme/component support.
 
 This means the action can compile even when the CRNTLY component is missing. In the current local test phase, running the action without the DLL shows a bootstrap dialog explaining where the component was expected and asks the tester to run `build-ui.ps1`.
 
 Later, that same bootstrap point can offer a confirmed download/install from livestreaming.tools without changing the rest of Overlay(er).
+
+The **Auto start** toggle controls only the compositor server. When enabled, the server starts automatically the next time the Overlay(er) runtime starts. It does not auto-run the Streamer.bot action itself.
 
 ### overlay-er.cs references
 
