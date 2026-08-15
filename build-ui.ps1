@@ -9,6 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $project = Join-Path $PSScriptRoot 'CRNTLY.StreamerBot.UI\CRNTLY.StreamerBot.UI.csproj'
+$dll = Join-Path $PSScriptRoot "CRNTLY.StreamerBot.UI\bin\$Configuration\net481\CRNTLY.StreamerBot.UI.dll"
 
 function Resolve-StreamerBotPath {
     param([string]$ExplicitPath)
@@ -55,12 +56,23 @@ function Resolve-StreamerBotPath {
     return $null
 }
 
-dotnet restore $project
-dotnet build $project -c $Configuration --no-restore
+# Never allow a failed build to look successful because an older DLL still exists.
+if (Test-Path $dll) {
+    Remove-Item $dll -Force
+}
 
-$dll = Join-Path $PSScriptRoot "CRNTLY.StreamerBot.UI\bin\$Configuration\net481\CRNTLY.StreamerBot.UI.dll"
+dotnet restore $project
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet restore failed with exit code $LASTEXITCODE. Nothing was deployed."
+}
+
+dotnet build $project -c $Configuration --no-restore
+if ($LASTEXITCODE -ne 0) {
+    throw "dotnet build failed with exit code $LASTEXITCODE. Nothing was deployed."
+}
+
 if (-not (Test-Path $dll)) {
-    throw "Build completed but DLL was not found at: $dll"
+    throw "Build reported success but DLL was not found at: $dll"
 }
 
 Write-Host ""
