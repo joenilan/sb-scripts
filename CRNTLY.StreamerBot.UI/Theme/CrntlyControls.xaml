@@ -1,12 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!--
-    Shared CRNTLY component templates.
-    Palette and density values deliberately use DynamicResource so merged theme
-    dictionaries can be swapped at runtime and hosted WPF template loading does
-    not depend on sibling StaticResource lookup scope.
-  -->
+  <!-- Shared dependency-free CRNTLY controls. Theme/density tokens stay dynamic. -->
 
   <Style TargetType="Window">
     <Setter Property="Background" Value="{DynamicResource Crntly.Background}" />
@@ -47,6 +42,7 @@
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
     <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Button">
@@ -56,23 +52,21 @@
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{DynamicResource Crntly.ControlRadius}"
                   Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              RecognizesAccessKey="True" />
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.SurfaceHover}" />
               <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.BorderStrong}" />
             </Trigger>
-            <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Chrome" Property="Opacity" Value="0.78" />
-            </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
               <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.BorderStrong}" />
+            </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Chrome" Property="Opacity" Value="0.4" />
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.42" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -99,9 +93,7 @@
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{DynamicResource Crntly.ControlRadius}"
                   Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center"
-                              VerticalAlignment="Center"
-                              RecognizesAccessKey="True" />
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
@@ -111,8 +103,11 @@
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentPressed}" />
             </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="White" />
+            </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Chrome" Property="Opacity" Value="0.4" />
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.42" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -130,8 +125,9 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="MinWidth" Value="30" />
-    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="MinWidth" Value="24" />
+    <Setter Property="MinHeight" Value="22" />
+    <Setter Property="FontSize" Value="10" />
   </Style>
 
   <Style x:Key="Crntly.TextBox" TargetType="TextBox">
@@ -144,6 +140,7 @@
     <Setter Property="CaretBrush" Value="{DynamicResource Crntly.Text}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource Crntly.Accent}" />
     <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
@@ -152,16 +149,14 @@
                   BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{DynamicResource Crntly.ControlRadius}">
-            <ScrollViewer x:Name="PART_ContentHost"
-                          Margin="{TemplateBinding Padding}"
-                          VerticalAlignment="Center" />
+            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
           </Border>
           <ControlTemplate.Triggers>
-            <Trigger Property="IsKeyboardFocused" Value="True">
-              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
-            </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.BorderStrong}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
             <Trigger Property="IsReadOnly" Value="True">
               <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.Background}" />
@@ -178,43 +173,49 @@
 
   <Style TargetType="TextBox" BasedOn="{StaticResource Crntly.TextBox}" />
 
+  <!-- Compact rectangular switch: modern without the pill-shaped mobile look. -->
   <Style x:Key="Crntly.Toggle" TargetType="CheckBox">
     <Setter Property="Foreground" Value="{DynamicResource Crntly.Text}" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="CheckBox">
           <Grid>
             <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="31" />
+              <ColumnDefinition Width="28" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Border x:Name="Track"
-                    Width="29" Height="16"
+                    Width="26" Height="14"
                     Background="{DynamicResource Crntly.BorderStrong}"
-                    CornerRadius="8"
+                    BorderBrush="{DynamicResource Crntly.BorderStrong}"
+                    BorderThickness="1"
+                    CornerRadius="2"
                     VerticalAlignment="Center">
-              <Grid Margin="2">
-                <Ellipse x:Name="Thumb"
-                         Width="12" Height="12"
-                         Fill="{DynamicResource Crntly.Text}"
-                         HorizontalAlignment="Left" />
+              <Grid Margin="1">
+                <Border x:Name="Thumb"
+                        Width="10" Height="10"
+                        Background="{DynamicResource Crntly.Text}"
+                        CornerRadius="1"
+                        HorizontalAlignment="Left" />
               </Grid>
             </Border>
-            <ContentPresenter Grid.Column="1"
-                              Margin="6,0,0,0"
-                              VerticalAlignment="Center"
-                              RecognizesAccessKey="True" />
+            <ContentPresenter Grid.Column="1" Margin="5,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True" />
           </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsChecked" Value="True">
               <Setter TargetName="Track" Property="Background" Value="{DynamicResource Crntly.Accent}" />
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
               <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
             </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Track" Property="Opacity" Value="0.9" />
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.AccentHover}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
               <Setter TargetName="Track" Property="Opacity" Value="0.4" />
@@ -231,15 +232,13 @@
   <Style x:Key="Crntly.Slider" TargetType="Slider">
     <Setter Property="Foreground" Value="{DynamicResource Crntly.Accent}" />
     <Setter Property="Background" Value="{DynamicResource Crntly.Border}" />
-    <Setter Property="Height" Value="18" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="Slider">
-          <Grid Height="18">
-            <Border Height="3"
-                    Background="{TemplateBinding Background}"
-                    CornerRadius="2"
-                    VerticalAlignment="Center" />
+          <Grid Height="16">
+            <Border Height="2" Background="{TemplateBinding Background}" VerticalAlignment="Center" />
             <Track x:Name="PART_Track"
                    Minimum="{TemplateBinding Minimum}"
                    Maximum="{TemplateBinding Maximum}"
@@ -248,29 +247,27 @@
                    IsDirectionReversed="{TemplateBinding IsDirectionReversed}"
                    VerticalAlignment="Center">
               <Track.DecreaseRepeatButton>
-                <RepeatButton Command="{x:Static Slider.DecreaseLarge}"
-                              Background="{DynamicResource Crntly.Accent}"
-                              Focusable="False">
+                <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Background="{DynamicResource Crntly.Accent}" Focusable="False">
                   <RepeatButton.Template>
                     <ControlTemplate TargetType="RepeatButton">
-                      <Border Height="3"
-                              Background="{TemplateBinding Background}"
-                              CornerRadius="2" />
+                      <Border Height="2" Background="{TemplateBinding Background}" />
                     </ControlTemplate>
                   </RepeatButton.Template>
                 </RepeatButton>
               </Track.DecreaseRepeatButton>
               <Track.Thumb>
-                <Thumb Width="12" Height="12" Focusable="False">
+                <Thumb Width="9" Height="13" Focusable="False">
                   <Thumb.Template>
                     <ControlTemplate TargetType="Thumb">
-                      <Ellipse x:Name="ThumbCircle"
-                               Fill="{DynamicResource Crntly.Text}"
-                               Stroke="{DynamicResource Crntly.Accent}"
-                               StrokeThickness="2" />
+                      <Border x:Name="ThumbChrome"
+                              Background="{DynamicResource Crntly.Text}"
+                              BorderBrush="{DynamicResource Crntly.Accent}"
+                              BorderThickness="1"
+                              CornerRadius="1" />
                       <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                          <Setter TargetName="ThumbCircle" Property="Fill" Value="White" />
+                          <Setter TargetName="ThumbChrome" Property="Background" Value="White" />
+                          <Setter TargetName="ThumbChrome" Property="BorderThickness" Value="2" />
                         </Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -278,13 +275,9 @@
                 </Thumb>
               </Track.Thumb>
               <Track.IncreaseRepeatButton>
-                <RepeatButton Command="{x:Static Slider.IncreaseLarge}"
-                              Background="Transparent"
-                              Focusable="False">
+                <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Background="Transparent" Focusable="False">
                   <RepeatButton.Template>
-                    <ControlTemplate TargetType="RepeatButton">
-                      <Border Background="Transparent" />
-                    </ControlTemplate>
+                    <ControlTemplate TargetType="RepeatButton"><Border Background="Transparent" /></ControlTemplate>
                   </RepeatButton.Template>
                 </RepeatButton>
               </Track.IncreaseRepeatButton>
@@ -297,38 +290,28 @@
 
   <Style TargetType="Slider" BasedOn="{StaticResource Crntly.Slider}" />
 
-  <!-- Custom compact scrollbars. -->
+  <!-- Slim square-edged scrollbars. -->
   <ControlTemplate x:Key="Crntly.VerticalScrollBarTemplate" TargetType="ScrollBar">
     <Grid Width="{DynamicResource Crntly.ScrollBarSize}" Background="Transparent">
       <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
         <Track.DecreaseRepeatButton>
-          <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}"
-                        CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
-                        Focusable="False" Opacity="0" />
+          <RepeatButton Command="{x:Static ScrollBar.PageUpCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Focusable="False" Opacity="0" />
         </Track.DecreaseRepeatButton>
         <Track.Thumb>
-          <Thumb MinHeight="24" Margin="1,2">
+          <Thumb MinHeight="20" Margin="1,1">
             <Thumb.Template>
               <ControlTemplate TargetType="Thumb">
-                <Border x:Name="ThumbChrome"
-                        Background="{DynamicResource Crntly.BorderStrong}"
-                        CornerRadius="3" />
+                <Border x:Name="ThumbChrome" Background="{DynamicResource Crntly.BorderStrong}" CornerRadius="1" />
                 <ControlTemplate.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.TextSubtle}" />
-                  </Trigger>
-                  <Trigger Property="IsDragging" Value="True">
-                    <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" />
-                  </Trigger>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.TextSubtle}" /></Trigger>
+                  <Trigger Property="IsDragging" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" /></Trigger>
                 </ControlTemplate.Triggers>
               </ControlTemplate>
             </Thumb.Template>
           </Thumb>
         </Track.Thumb>
         <Track.IncreaseRepeatButton>
-          <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}"
-                        CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
-                        Focusable="False" Opacity="0" />
+          <RepeatButton Command="{x:Static ScrollBar.PageDownCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Focusable="False" Opacity="0" />
         </Track.IncreaseRepeatButton>
       </Track>
     </Grid>
@@ -338,33 +321,23 @@
     <Grid Height="{DynamicResource Crntly.ScrollBarSize}" Background="Transparent">
       <Track x:Name="PART_Track" IsDirectionReversed="False" Focusable="False">
         <Track.DecreaseRepeatButton>
-          <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}"
-                        CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
-                        Focusable="False" Opacity="0" />
+          <RepeatButton Command="{x:Static ScrollBar.PageLeftCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Focusable="False" Opacity="0" />
         </Track.DecreaseRepeatButton>
         <Track.Thumb>
-          <Thumb MinWidth="24" Margin="2,1">
+          <Thumb MinWidth="20" Margin="1,1">
             <Thumb.Template>
               <ControlTemplate TargetType="Thumb">
-                <Border x:Name="ThumbChrome"
-                        Background="{DynamicResource Crntly.BorderStrong}"
-                        CornerRadius="3" />
+                <Border x:Name="ThumbChrome" Background="{DynamicResource Crntly.BorderStrong}" CornerRadius="1" />
                 <ControlTemplate.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True">
-                    <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.TextSubtle}" />
-                  </Trigger>
-                  <Trigger Property="IsDragging" Value="True">
-                    <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" />
-                  </Trigger>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.TextSubtle}" /></Trigger>
+                  <Trigger Property="IsDragging" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" /></Trigger>
                 </ControlTemplate.Triggers>
               </ControlTemplate>
             </Thumb.Template>
           </Thumb>
         </Track.Thumb>
         <Track.IncreaseRepeatButton>
-          <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}"
-                        CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}"
-                        Focusable="False" Opacity="0" />
+          <RepeatButton Command="{x:Static ScrollBar.PageRightCommand}" CommandTarget="{Binding RelativeSource={RelativeSource TemplatedParent}}" Focusable="False" Opacity="0" />
         </Track.IncreaseRepeatButton>
       </Track>
     </Grid>
@@ -374,6 +347,7 @@
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Width" Value="{DynamicResource Crntly.ScrollBarSize}" />
     <Setter Property="Height" Value="{DynamicResource Crntly.ScrollBarSize}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Template" Value="{StaticResource Crntly.VerticalScrollBarTemplate}" />
     <Style.Triggers>
       <Trigger Property="Orientation" Value="Horizontal">
@@ -392,9 +366,10 @@
   <Style TargetType="ListBoxItem">
     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
     <Setter Property="Padding" Value="0" />
-    <Setter Property="Margin" Value="0,0,0,4" />
+    <Setter Property="Margin" Value="0,0,0,2" />
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ListBoxItem">
@@ -402,8 +377,8 @@
                   Background="{TemplateBinding Background}"
                   BorderBrush="{DynamicResource Crntly.Border}"
                   BorderThickness="1"
-                  CornerRadius="{DynamicResource Crntly.ControlRadius}"
-                  Padding="8,6">
+                  CornerRadius="1"
+                  Padding="6,4">
             <ContentPresenter />
           </Border>
           <ControlTemplate.Triggers>
@@ -415,9 +390,7 @@
               <Setter TargetName="Row" Property="Background" Value="{DynamicResource Crntly.AccentMuted}" />
               <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
-            <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Row" Property="Opacity" Value="0.45" />
-            </Trigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Row" Property="Opacity" Value="0.45" /></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
