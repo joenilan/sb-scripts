@@ -9,7 +9,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $project = Join-Path $PSScriptRoot 'CRNTLY.StreamerBot.UI\CRNTLY.StreamerBot.UI.csproj'
-$dll = Join-Path $PSScriptRoot "CRNTLY.StreamerBot.UI\bin\$Configuration\net481\CRNTLY.StreamerBot.UI.dll"
+$outputDir = Join-Path $PSScriptRoot "CRNTLY.StreamerBot.UI\bin\$Configuration\net481"
+$dll = Join-Path $outputDir 'CRNTLY.StreamerBot.UI.dll'
 
 function Resolve-StreamerBotPath {
     param([string]$ExplicitPath)
@@ -94,9 +95,18 @@ if (-not $resolvedStreamerBotPath) {
 $dllsPath = Join-Path $resolvedStreamerBotPath 'dlls'
 New-Item -ItemType Directory -Path $dllsPath -Force | Out-Null
 
-$destination = Join-Path $dllsPath 'CRNTLY.StreamerBot.UI.dll'
-Copy-Item -Path $dll -Destination $destination -Force
+# CRNTLY is loaded dynamically by the Streamer.bot script. Any WPF framework
+# dependencies it uses must live beside it so the CLR can resolve them at runtime.
+$runtimeDlls = @()
+$runtimeDlls += Get-Item $dll
+$runtimeDlls += Get-ChildItem -Path $outputDir -File -Filter 'ModernWpf*.dll' -ErrorAction SilentlyContinue
+$runtimeDlls = $runtimeDlls | Sort-Object FullName -Unique
 
-Write-Host "Deployed: $destination"
-Write-Host "Streamer.bot can resolve custom assemblies from its dlls folder."
+foreach ($runtimeDll in $runtimeDlls) {
+    $destination = Join-Path $dllsPath $runtimeDll.Name
+    Copy-Item -Path $runtimeDll.FullName -Destination $destination -Force
+    Write-Host "Deployed: $destination"
+}
+
+Write-Host "Streamer.bot can resolve CRNTLY and its UI dependencies from the dlls folder."
 Write-Host "If Streamer.bot was already running with an older copy loaded, restart it before testing the new build."
