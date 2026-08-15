@@ -6,7 +6,16 @@ C# scripts for [Streamer.bot](https://streamer.bot).
 
 | Script | Description |
 | --- | --- |
-| [`overlayer.cs`](overlayer.cs) | Takes multiple URLs and condenses them into a single page for use as an OBS overlay. |
+| [`overlayer.cs`](overlayer.cs) | Takes multiple URLs and condenses them into a single page for use as an OBS overlay. Ships a WinForms control panel and serves the combined page over a local `HttpListener`. |
+
+### overlayer.cs references
+
+Add these under **References** in the C# editor:
+
+- `System.Windows.Forms.dll`
+- `System.Drawing.dll`
+- `System.Web.dll`
+- `Newtonsoft.Json.dll`
 
 ## Usage
 
