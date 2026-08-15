@@ -293,6 +293,20 @@ public sealed class OverlayerRuntime : IDisposable
 
         lock (_gate)
         {
+            if (changed.IsPreview)
+            {
+                var preview = _items.Select(x => x.Clone()).ToList();
+                var previewItem = preview.FirstOrDefault(x => x.Id == changed.Id);
+                if (previewItem != null)
+                {
+                    CopyItem(changed, previewItem);
+                    previewItem.IsPreview = false;
+                    _server.UpdateItems(preview);
+                }
+                return;
+            }
+
+            changed.IsPreview = false;
             var existing = _items.FirstOrDefault(x => x.Id == changed.Id);
             if (existing == null)
                 _items.Add(changed.Clone());
@@ -383,6 +397,7 @@ public sealed class OverlayerRuntime : IDisposable
         target.Left = source.Left;
         target.Enabled = source.Enabled;
         target.SourceKind = source.SourceKind;
+        target.IsPreview = source.IsPreview;
     }
 
     private void ThrowIfDisposed()
@@ -418,6 +433,7 @@ public sealed class OverlayRecord
     public string Left { get; set; }
     public bool Enabled { get; set; }
     public string SourceKind { get; set; }
+    public bool IsPreview { get; set; }
 
     public OverlayRecord Clone()
     {
@@ -431,7 +447,8 @@ public sealed class OverlayRecord
             Top = Top,
             Left = Left,
             Enabled = Enabled,
-            SourceKind = SourceKind
+            SourceKind = SourceKind,
+            IsPreview = IsPreview
         };
     }
 }
@@ -547,7 +564,8 @@ public sealed class OverlayerConfigStore
                     Top = Get(row, "Top", "0px"),
                     Left = Get(row, "Left", "0px"),
                     Enabled = enabled,
-                    SourceKind = "Auto"
+                    SourceKind = "Auto",
+                    IsPreview = false
                 }
             });
         }
@@ -581,6 +599,7 @@ public sealed class CompositeOverlayServer : IDisposable
 
     private readonly object _gate = new object();
     private readonly Action<string> _logError;
+    private readonly List<HttpListenerResponse> _eventClients = new List<HttpListenerResponse>();
     private HttpListener _listener;
     private HttpListener _localListener;
     private string _stateJson = "[]";
@@ -651,7 +670,16 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
   }
 
   sync();
-  setInterval(sync, 1500);
+
+  if (window.EventSource) {
+    try {
+      const events = new EventSource('/events');
+      events.onmessage = event => applyState(event.data);
+      // EventSource reconnects automatically. The slow poll below is only a safety net.
+    } catch (_) { }
+  }
+
+  setInterval(sync, 5000);
 })();
 </script>
 </body>
@@ -703,11 +731,14 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
             });
         }
 
+        var json = JsonConvert.SerializeObject(state, Formatting.None);
         lock (_gate)
         {
-            _stateJson = JsonConvert.SerializeObject(state, Formatting.None);
+            _stateJson = json;
             _localRoots = localRoots;
         }
+
+        BroadcastState(json);
     }
 
     public void Start()
@@ -752,6 +783,16 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         var local = _localListener;
         _listener = null;
         _localListener = null;
+
+        List<HttpListenerResponse> eventClients;
+        lock (_gate)
+        {
+            eventClients = _eventClients.ToList();
+            _eventClients.Clear();
+        }
+
+        foreach (var response in eventClients)
+            SafeClose(response);
 
         try { if (main != null) main.Close(); } catch { }
         try { if (local != null) local.Close(); } catch { }
@@ -841,6 +882,12 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
             return;
         }
 
+        if (string.Equals(path, "/events", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleEventStream(context);
+            return;
+        }
+
         if (string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase))
         {
             WriteText(context, "ok", "text/plain; charset=utf-8", HttpStatusCode.OK);
@@ -848,6 +895,68 @@ html,body,#crntly-root{margin:0;width:100%;height:100%;overflow:hidden;backgroun
         }
 
         WriteText(context, "Not found", "text/plain; charset=utf-8", HttpStatusCode.NotFound);
+    }
+
+    private void HandleEventStream(HttpListenerContext context)
+    {
+        var response = context.Response;
+        response.StatusCode = (int)HttpStatusCode.OK;
+        response.ContentType = "text/event-stream; charset=utf-8";
+        response.SendChunked = true;
+        response.KeepAlive = true;
+        response.Headers["Cache-Control"] = "no-cache";
+
+        string json;
+        lock (_gate)
+        {
+            json = _stateJson;
+            _eventClients.Add(response);
+        }
+
+        try
+        {
+            WriteEvent(response, json);
+        }
+        catch
+        {
+            RemoveEventClient(response);
+        }
+    }
+
+    private void BroadcastState(string json)
+    {
+        if (!IsRunning)
+            return;
+
+        List<HttpListenerResponse> clients;
+        lock (_gate)
+            clients = _eventClients.ToList();
+
+        foreach (var response in clients)
+        {
+            try
+            {
+                WriteEvent(response, json);
+            }
+            catch
+            {
+                RemoveEventClient(response);
+            }
+        }
+    }
+
+    private static void WriteEvent(HttpListenerResponse response, string json)
+    {
+        var buffer = Encoding.UTF8.GetBytes("data: " + (json ?? "[]") + "\n\n");
+        response.OutputStream.Write(buffer, 0, buffer.Length);
+        response.OutputStream.Flush();
+    }
+
+    private void RemoveEventClient(HttpListenerResponse response)
+    {
+        lock (_gate)
+            _eventClients.Remove(response);
+        SafeClose(response);
     }
 
     private void HandleLocal(HttpListenerContext context)
