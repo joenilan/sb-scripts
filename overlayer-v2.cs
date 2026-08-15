@@ -411,8 +411,7 @@ public sealed class OverlayerScriptUi : IDisposable
                   </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column=""1"" Orientation=""Horizontal"" VerticalAlignment=""Center"">
-                  <Button x:Name=""ResetLayoutButton"" Style=""{StaticResource Crntly.IconButton}"" Margin=""0,0,5,0"" ToolTip=""Reset size and position to defaults""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button>
-                  <CheckBox x:Name=""EnabledBox"" Content=""Enabled"" VerticalAlignment=""Center"" />
+                  <Button x:Name=""ResetLayoutButton"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Reset size and position to defaults""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z"" /></Button>
                 </StackPanel>
               </Grid>
               <Grid Margin=""0,0,0,6"">
@@ -542,8 +541,6 @@ public sealed class OverlayerScriptUi : IDisposable
         Bind("DeleteButton", "Click", "delete");
         Bind("OverlayList", "SelectionChanged", "selection");
         Bind("ResetLayoutButton", "Click", "reset-all");
-        Bind("EnabledBox", "Checked", "enabled");
-        Bind("EnabledBox", "Unchecked", "enabled");
         Bind("NameBox", "TextChanged", "field");
         Bind("UrlBox", "TextChanged", "url-field");
         Bind("WidthBox", "TextChanged", "field");
@@ -583,12 +580,7 @@ public sealed class OverlayerScriptUi : IDisposable
         item.IsPreview = false;
         SafeInvoke(OverlayChanged, item.Clone());
         if (ReferenceEquals(_editingItem, item))
-        {
-            _loadingEditor = true;
-            try { _window.SetProperty("EnabledBox", "IsChecked", item.Enabled); }
-            finally { _loadingEditor = false; }
             SetEditorStatus("Saved", "Crntly.Success");
-        }
     }
 
     private void OnUiEvent(string key)
@@ -622,7 +614,6 @@ public sealed class OverlayerScriptUi : IDisposable
                 case "reset-height": ResetField("HeightBox", "100%", null); break;
                 case "reset-left": ResetField("LeftBox", "0", "LeftSlider"); break;
                 case "reset-top": ResetField("TopBox", "0", "TopSlider"); break;
-                case "enabled": EnabledChanged(); break;
                 case "field": FieldChanged(null); break;
                 case "url-field": FieldChanged("url"); break;
                 case "left-field": FieldChanged("left"); break;
@@ -740,17 +731,6 @@ public sealed class OverlayerScriptUi : IDisposable
         _editingItem = SelectedItem();
         LoadSelectedEditor();
         UpdateActionStates();
-    }
-
-    private void EnabledChanged()
-    {
-        if (_loadingEditor || _editingItem == null)
-            return;
-        _editingItem.Enabled = _window.Get<bool>("EnabledBox", "IsChecked", false);
-        _editingItem.IsPreview = false;
-        SafeInvoke(OverlayChanged, _editingItem.Clone());
-        RefreshOverlayList();
-        SetEditorStatus("Saved", "Crntly.Success");
     }
 
     private void FieldChanged(string kind)
@@ -895,7 +875,6 @@ public sealed class OverlayerScriptUi : IDisposable
         item.Name = Text("NameBox").Trim();
         item.Url = Text("UrlBox").Trim();
         item.Width = width; item.Height = height; item.Left = left; item.Top = top;
-        item.Enabled = _window.Get<bool>("EnabledBox", "IsChecked", true);
         item.IsPreview = false;
         SafeInvoke(OverlayChanged, item.Clone());
         _loadingEditor = true;
@@ -938,7 +917,6 @@ public sealed class OverlayerScriptUi : IDisposable
             _window.SetProperty("HeightBox", "Text", item.Height ?? "100%");
             _window.SetProperty("LeftBox", "Text", DisplayPosition(item.Left));
             _window.SetProperty("TopBox", "Text", DisplayPosition(item.Top));
-            _window.SetProperty("EnabledBox", "IsChecked", item.Enabled);
             SyncPositionSlider("LeftBox", "LeftSlider");
             SyncPositionSlider("TopBox", "TopSlider");
             SetEditorStatus("Autosave", "Crntly.TextMuted");
@@ -958,13 +936,13 @@ public sealed class OverlayerScriptUi : IDisposable
         _window.SetProperty("NameBox", "Text", ""); _window.SetProperty("UrlBox", "Text", "");
         _window.SetProperty("WidthBox", "Text", "100%"); _window.SetProperty("HeightBox", "Text", "100%");
         _window.SetProperty("LeftBox", "Text", "0"); _window.SetProperty("TopBox", "Text", "0");
-        _window.SetProperty("EnabledBox", "IsChecked", true); _window.SetProperty("LeftSlider", "Value", 0d); _window.SetProperty("TopSlider", "Value", 0d);
+        _window.SetProperty("LeftSlider", "Value", 0d); _window.SetProperty("TopSlider", "Value", 0d);
         SetEditorStatus("Autosave", "Crntly.TextMuted");
     }
 
     private void SetEditorEnabled(bool enabled)
     {
-        foreach (var name in new[] { "NameBox", "UrlBox", "WidthBox", "HeightBox", "LeftBox", "TopBox", "EnabledBox", "ResetLayoutButton", "ResetWidthButton", "ResetHeightButton", "ResetLeftButton", "ResetTopButton" })
+        foreach (var name in new[] { "NameBox", "UrlBox", "WidthBox", "HeightBox", "LeftBox", "TopBox", "ResetLayoutButton", "ResetWidthButton", "ResetHeightButton", "ResetLeftButton", "ResetTopButton" })
             _window.SetProperty(name, "IsEnabled", enabled);
         _window.SetProperty("OpenSourceButton", "IsEnabled", enabled && CanOpen(Text("UrlBox")));
         _window.SetProperty("LeftSlider", "IsEnabled", enabled); _window.SetProperty("TopSlider", "IsEnabled", enabled);
