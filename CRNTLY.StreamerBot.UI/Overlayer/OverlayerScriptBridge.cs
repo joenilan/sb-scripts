@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Web.Script.Serialization;
+using System.Runtime.Serialization.Json;
+using System.Text;
 
 namespace Crntly.StreamerBot.UI.Overlayer
 {
@@ -12,7 +14,6 @@ namespace Crntly.StreamerBot.UI.Overlayer
     /// </summary>
     public sealed class OverlayerScriptBridge : IDisposable
     {
-        private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
         private readonly OverlayerUi _ui = new OverlayerUi();
         private bool _disposed;
 
@@ -54,14 +55,14 @@ namespace Crntly.StreamerBot.UI.Overlayer
             _ui.SetServerState(running, serverUrl);
         }
 
-        private List<OverlayItem> ParseItems(string json)
+        private static List<OverlayItem> ParseItems(string json)
         {
             if (string.IsNullOrWhiteSpace(json))
                 return new List<OverlayItem>();
 
             try
             {
-                return _json.Deserialize<List<OverlayItem>>(json) ?? new List<OverlayItem>();
+                return Deserialize<List<OverlayItem>>(json) ?? new List<OverlayItem>();
             }
             catch
             {
@@ -69,14 +70,32 @@ namespace Crntly.StreamerBot.UI.Overlayer
             }
         }
 
-        private string SerializeItem(OverlayItem item)
+        private static string SerializeItem(OverlayItem item)
         {
-            return _json.Serialize(item == null ? null : item.Clone());
+            return Serialize(item == null ? null : item.Clone());
         }
 
-        private string SerializeItems(IEnumerable<OverlayItem> items)
+        private static string SerializeItems(IEnumerable<OverlayItem> items)
         {
-            return _json.Serialize((items ?? Enumerable.Empty<OverlayItem>()).Select(x => x.Clone()).ToList());
+            return Serialize((items ?? Enumerable.Empty<OverlayItem>()).Select(x => x.Clone()).ToList());
+        }
+
+        private static T Deserialize<T>(string json)
+        {
+            var serializer = new DataContractJsonSerializer(typeof(T));
+            var bytes = Encoding.UTF8.GetBytes(json ?? string.Empty);
+            using (var stream = new MemoryStream(bytes))
+                return (T)serializer.ReadObject(stream);
+        }
+
+        private static string Serialize<T>(T value)
+        {
+            var serializer = new DataContractJsonSerializer(typeof(T));
+            using (var stream = new MemoryStream())
+            {
+                serializer.WriteObject(stream, value);
+                return Encoding.UTF8.GetString(stream.ToArray());
+            }
         }
 
         private void Ui_StartServerRequested(object sender, EventArgs e)
