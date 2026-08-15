@@ -13,9 +13,10 @@ namespace Crntly.StreamerBot.UI.ScriptHost
     /// Reflection-friendly WPF host for Streamer.bot scripts.
     ///
     /// The script owns its application-specific XAML and behavior. This bridge only
-    /// owns the WPF mechanics: STA dispatch, XAML loading, named-control access and
-    /// event forwarding. Scripts can therefore use CRNTLY WPF UI without adding a
-    /// compile-time reference to PresentationFramework or this assembly.
+    /// owns the WPF mechanics: STA dispatch, XAML loading, named-control access,
+    /// theme-resource lookup, collection refresh and event forwarding. Scripts can
+    /// therefore use CRNTLY WPF UI without adding a compile-time reference to
+    /// PresentationFramework or this assembly.
     /// </summary>
     public sealed class CrntlyScriptWindowBridge : IDisposable
     {
@@ -25,12 +26,20 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         private Window _window;
         private string _loadedXaml;
         private bool _disposed;
+        private bool _allowWindowClose;
 
         /// <summary>
         /// Receives the event key supplied to BindEvent. Event forwarding deliberately
         /// stays payload-free; scripts can query the named control after receiving it.
         /// </summary>
         public Action<string> EventRaised { get; set; }
+
+        /// <summary>
+        /// Script tools normally behave like Streamer.bot utility panels: closing the
+        /// window hides it while keeping its runtime alive. Set false for normal WPF
+        /// close semantics. Dispose/Close always performs a real close.
+        /// </summary>
+        public bool HideOnUserClose { get; set; } = true;
 
         public string AssemblyVersion
         {
@@ -153,11 +162,29 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             {
                 EnsureLoaded();
                 var target = FindTarget(controlName);
-                var property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
-                if (property == null || !property.CanWrite)
-                    throw new MissingMemberException(target.GetType().FullName, propertyName);
+                SetPropertyCore(target, propertyName, value);
+            });
+        }
 
-                property.SetValue(target, Coerce(value, property.PropertyType), null);
+        /// <summary>
+        /// Sets a property from a resource in the loaded window's merged CRNTLY theme.
+        /// This lets reflection-only scripts style status dots/text without needing to
+        /// reference Brush, Color or other WPF types at compile time.
+        /// </summary>
+        public void SetResourceProperty(string controlName, string propertyName, string resourceKey)
+        {
+            ThrowIfDisposed();
+            if (string.IsNullOrWhiteSpace(resourceKey))
+                throw new ArgumentException("Resource key cannot be empty.", nameof(resourceKey));
+
+            CrntlyUiHost.Invoke(() =>
+            {
+                EnsureLoaded();
+                var value = _window.TryFindResource(resourceKey);
+                if (value == null)
+                    throw new MissingMemberException("The script window cannot resolve resource '" + resourceKey + "'.");
+
+                SetPropertyCore(FindTarget(controlName), propertyName, value);
             });
         }
 
@@ -168,6 +195,30 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         public void SetItemsSource(string controlName, object itemsSource)
         {
             SetProperty(controlName, "ItemsSource", itemsSource);
+        }
+
+        /// <summary>
+        /// Refreshes an ItemsControl's ItemCollection after a script mutates properties
+        /// on plain POCO rows that do not implement INotifyPropertyChanged.
+        /// </summary>
+        public void RefreshItems(string controlName)
+        {
+            ThrowIfDisposed();
+            CrntlyUiHost.Invoke(() =>
+            {
+                EnsureLoaded();
+                var target = FindTarget(controlName);
+                var itemsProperty = target.GetType().GetProperty("Items", BindingFlags.Instance | BindingFlags.Public);
+                var items = itemsProperty == null ? null : itemsProperty.GetValue(target, null);
+                if (items == null)
+                    throw new MissingMemberException(target.GetType().FullName, "Items");
+
+                var refresh = items.GetType().GetMethod("Refresh", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
+                if (refresh == null)
+                    throw new MissingMethodException(items.GetType().FullName, "Refresh");
+
+                refresh.Invoke(items, null);
+            });
         }
 
         public object GetSelectedItem(string controlName)
@@ -187,8 +238,8 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         }
 
         /// <summary>
-        /// Calls a public parameterless method such as Focus(), SelectAll(), or
-        /// Items.Refresh() without introducing WPF compile-time types in the script.
+        /// Calls a public parameterless method such as Focus(), SelectAll(), DragMove()
+        /// or Items.Refresh() without introducing WPF compile-time types in the script.
         /// </summary>
         public object InvokeMethod(string controlName, string methodName)
         {
@@ -228,7 +279,18 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             if (_window == null)
                 throw new InvalidOperationException("Script-owned CRNTLY XAML must have a Window as its root element.");
 
+            _window.Closing += OnWindowClosing;
             _loadedXaml = xaml;
+        }
+
+        private void OnWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_allowWindowClose || !HideOnUserClose)
+                return;
+
+            e.Cancel = true;
+            if (_window != null)
+                _window.Hide();
         }
 
         private object FindTarget(string controlName)
@@ -244,6 +306,20 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             if (target == null)
                 throw new MissingMemberException("The script window does not contain a named element '" + controlName + "'.");
             return target;
+        }
+
+        private static void SetPropertyCore(object target, string propertyName, object value)
+        {
+            if (target == null)
+                throw new ArgumentNullException(nameof(target));
+            if (string.IsNullOrWhiteSpace(propertyName))
+                throw new ArgumentException("Property name cannot be empty.", nameof(propertyName));
+
+            var property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            if (property == null || !property.CanWrite)
+                throw new MissingMemberException(target.GetType().FullName, propertyName);
+
+            property.SetValue(target, Coerce(value, property.PropertyType), null);
         }
 
         private Delegate CreateEventForwarder(Type handlerType, string eventKey)
@@ -301,10 +377,16 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             {
                 try
                 {
+                    _allowWindowClose = true;
+                    _window.Closing -= OnWindowClosing;
                     _window.Close();
                 }
                 catch
                 {
+                }
+                finally
+                {
+                    _allowWindowClose = false;
                 }
             }
 
