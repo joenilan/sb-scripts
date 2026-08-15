@@ -9,6 +9,7 @@ The DLL intentionally has **no Streamer.bot dependency and no tool-specific wind
 - .NET Framework 4.8.1 (`net481`)
 - WPF
 - Assembly: `CRNTLY.StreamerBot.UI.dll`
+- Runtime version: `1.0.0`
 - Namespace: `Crntly.StreamerBot.UI`
 
 ## Intended install model
@@ -22,7 +23,7 @@ Execute C# Code: <tool-script>.cs
 
 A tool script discovers the DLL dynamically at runtime, so installing a CRNTLY tool does **not** require users to add CRNTLY or WPF assemblies as compile-time references in every Streamer.bot action.
 
-For the current Overlayer script, `Newtonsoft.Json.dll` remains the only direct editor reference.
+For the current **Overlay(er) v2.0.0** script, `Newtonsoft.Json.dll` remains the only direct editor reference.
 
 ## Build
 
@@ -74,22 +75,22 @@ Tool script owns:
   app-specific callbacks
 ```
 
-## Overlayer
+## Overlay(er)
 
-`overlayer-v2.cs` is now a direct example of this boundary:
+`overlay-er.cs` is a direct example of this boundary:
 
 ```text
-overlayer-v2.cs
-  -> owns the complete Overlayer XAML layout
+overlay-er.cs
+  -> owns the complete Overlay(er) XAML layout
   -> owns editing/autosave/reset/toolbar behavior
   -> owns config + compositor server + OBS-facing behavior
   -> dynamically loads the generic CrntlyScriptWindowBridge
 
 CRNTLY.StreamerBot.UI.dll
-  -> contains no Overlayer-specific model, window, bridge or code-behind
+  -> contains no Overlay(er)-specific model, window, bridge or code-behind
 ```
 
-This keeps Overlayer portable as one Streamer.bot script plus the common CRNTLY UI runtime, while every future CRNTLY script can reuse the same visual/component system.
+This keeps **Overlay(er)** portable as one Streamer.bot script plus the common CRNTLY UI runtime, while every future CRNTLY script can reuse the same visual/component system.
 
 ## Design boundary
 
