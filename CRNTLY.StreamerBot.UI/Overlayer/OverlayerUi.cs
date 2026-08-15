@@ -20,7 +20,11 @@ namespace Crntly.StreamerBot.UI.Overlayer
         public void Show(IEnumerable<OverlayItem> items, bool serverRunning, string serverUrl)
         {
             var snapshot = (items ?? Enumerable.Empty<OverlayItem>()).Select(x => x.Clone()).ToList();
-            CrntlyUiHost.BeginInvoke(() =>
+
+            // Initial window creation is intentionally synchronous. If XAML or a runtime
+            // dependency fails during InitializeComponent(), propagate that exception back
+            // to the Streamer.bot action instead of losing it on the UI dispatcher thread.
+            CrntlyUiHost.Invoke(() =>
             {
                 EnsureWindow();
                 _window.SetItems(snapshot);
