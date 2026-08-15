@@ -15,6 +15,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
         private string _top = "0px";
         private string _left = "0px";
         private bool _enabled = true;
+        private bool _isPreview;
 
         public string Id { get => _id; set => Set(ref _id, string.IsNullOrWhiteSpace(value) ? Guid.NewGuid().ToString("N") : value); }
         public string Name { get => _name; set => Set(ref _name, value ?? string.Empty); }
@@ -24,6 +25,12 @@ namespace Crntly.StreamerBot.UI.Overlayer
         public string Top { get => _top; set => Set(ref _top, value ?? "0px"); }
         public string Left { get => _left; set => Set(ref _left, value ?? "0px"); }
         public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
+
+        /// <summary>
+        /// Transient UI-to-script hint. Preview changes update the live compositor but are
+        /// not persisted until the normal debounced edit is committed.
+        /// </summary>
+        public bool IsPreview { get => _isPreview; set => Set(ref _isPreview, value); }
 
         public string SourceKind => Url != null && Url.StartsWith("file:///", StringComparison.OrdinalIgnoreCase)
             ? "LOCAL"
@@ -40,7 +47,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 Height = Height,
                 Top = Top,
                 Left = Left,
-                Enabled = Enabled
+                Enabled = Enabled,
+                IsPreview = IsPreview
             };
         }
 
