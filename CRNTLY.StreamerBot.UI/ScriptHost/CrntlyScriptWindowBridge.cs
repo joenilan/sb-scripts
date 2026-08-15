@@ -22,6 +22,8 @@ namespace Crntly.StreamerBot.UI.ScriptHost
     {
         private readonly Dictionary<string, BoundEvent> _boundEvents =
             new Dictionary<string, BoundEvent>(StringComparer.Ordinal);
+        private readonly Dictionary<string, BoundRoutedEvent> _boundRoutedEvents =
+            new Dictionary<string, BoundRoutedEvent>(StringComparer.Ordinal);
 
         private Window _window;
         private string _loadedXaml;
@@ -33,6 +35,13 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         /// stays payload-free; scripts can query the named control after receiving it.
         /// </summary>
         public Action<string> EventRaised { get; set; }
+
+        /// <summary>
+        /// Receives routed/template events together with the OriginalSource DataContext.
+        /// This is useful for controls created inside DataTemplates, where there is no
+        /// single named control for the script to query.
+        /// </summary>
+        public Action<string, object> RoutedEventRaised { get; set; }
 
         /// <summary>
         /// Script tools normally behave like Streamer.bot utility panels: closing the
@@ -56,10 +65,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             get { return CrntlyUiHost.Invoke(() => _window != null && _window.IsVisible); }
         }
 
-        /// <summary>
-        /// Loads script-owned XAML and shows its Window. Reusing the exact same XAML
-        /// reuses the existing Window; supplying different XAML safely rebuilds it.
-        /// </summary>
         public void Show(string xaml)
         {
             ThrowIfDisposed();
@@ -69,13 +74,10 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             CrntlyUiHost.Invoke(() =>
             {
                 EnsureWindow(xaml);
-
                 if (!_window.IsVisible)
                     _window.Show();
-
                 if (_window.WindowState == WindowState.Minimized)
                     _window.WindowState = WindowState.Normal;
-
                 _window.Activate();
             });
         }
@@ -96,11 +98,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             CrntlyUiHost.Invoke(CloseWindowCore);
         }
 
-        /// <summary>
-        /// Forwards a WPF event from a named control to EventRaised using eventKey.
-        /// Any standard void-returning CLR event can be bound without the script
-        /// referencing the event's WPF EventArgs type.
-        /// </summary>
         public void BindEvent(string controlName, string eventName, string eventKey)
         {
             ThrowIfDisposed();
@@ -112,7 +109,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             CrntlyUiHost.Invoke(() =>
             {
                 EnsureLoaded();
-
                 var target = FindTarget(controlName);
                 var eventInfo = target.GetType().GetEvent(eventName, BindingFlags.Instance | BindingFlags.Public);
                 if (eventInfo == null)
@@ -126,6 +122,45 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 var handler = CreateEventForwarder(eventInfo.EventHandlerType, eventKey);
                 eventInfo.AddEventHandler(target, handler);
                 _boundEvents[bindingKey] = new BoundEvent(target, eventInfo, handler);
+            });
+        }
+
+        /// <summary>
+        /// Binds a routed event at the Window root with handledEventsToo enabled. Pass
+        /// an assembly-qualified WPF owner type plus its public static RoutedEvent field,
+        /// for example ToggleButton + CheckedEvent. The callback receives eventKey and
+        /// the OriginalSource DataContext, which is typically the script-owned row item.
+        /// </summary>
+        public void BindRoutedEvent(string ownerTypeName, string routedEventFieldName, string eventKey)
+        {
+            ThrowIfDisposed();
+            if (string.IsNullOrWhiteSpace(ownerTypeName))
+                throw new ArgumentException("Owner type cannot be empty.", nameof(ownerTypeName));
+            if (string.IsNullOrWhiteSpace(routedEventFieldName))
+                throw new ArgumentException("Routed-event field cannot be empty.", nameof(routedEventFieldName));
+            if (string.IsNullOrWhiteSpace(eventKey))
+                throw new ArgumentException("Event key cannot be empty.", nameof(eventKey));
+
+            CrntlyUiHost.Invoke(() =>
+            {
+                EnsureLoaded();
+                var bindingKey = ownerTypeName + "\u001f" + routedEventFieldName + "\u001f" + eventKey;
+                BoundRoutedEvent existing;
+                if (_boundRoutedEvents.TryGetValue(bindingKey, out existing))
+                    return;
+
+                var ownerType = Type.GetType(ownerTypeName, false);
+                if (ownerType == null)
+                    throw new TypeLoadException("Unable to resolve routed-event owner type '" + ownerTypeName + "'.");
+
+                var field = ownerType.GetField(routedEventFieldName, BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                var routedEvent = field == null ? null : field.GetValue(null) as RoutedEvent;
+                if (routedEvent == null)
+                    throw new MissingMemberException(ownerType.FullName, routedEventFieldName);
+
+                RoutedEventHandler handler = (sender, args) => RaiseRoutedEvent(eventKey, args);
+                _window.AddHandler(routedEvent, handler, true);
+                _boundRoutedEvents[bindingKey] = new BoundRoutedEvent(routedEvent, handler);
             });
         }
 
@@ -161,16 +196,10 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             CrntlyUiHost.Invoke(() =>
             {
                 EnsureLoaded();
-                var target = FindTarget(controlName);
-                SetPropertyCore(target, propertyName, value);
+                SetPropertyCore(FindTarget(controlName), propertyName, value);
             });
         }
 
-        /// <summary>
-        /// Sets a property from a resource in the loaded window's merged CRNTLY theme.
-        /// This lets reflection-only scripts style status dots/text without needing to
-        /// reference Brush, Color or other WPF types at compile time.
-        /// </summary>
         public void SetResourceProperty(string controlName, string propertyName, string resourceKey)
         {
             ThrowIfDisposed();
@@ -183,24 +212,15 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 var value = _window.TryFindResource(resourceKey);
                 if (value == null)
                     throw new MissingMemberException("The script window cannot resolve resource '" + resourceKey + "'.");
-
                 SetPropertyCore(FindTarget(controlName), propertyName, value);
             });
         }
 
-        /// <summary>
-        /// Convenience wrapper for ItemsControl.ItemsSource. The object can be a
-        /// script-owned IList/collection; WPF binds to its public properties normally.
-        /// </summary>
         public void SetItemsSource(string controlName, object itemsSource)
         {
             SetProperty(controlName, "ItemsSource", itemsSource);
         }
 
-        /// <summary>
-        /// Refreshes an ItemsControl's ItemCollection after a script mutates properties
-        /// on plain POCO rows that do not implement INotifyPropertyChanged.
-        /// </summary>
         public void RefreshItems(string controlName)
         {
             ThrowIfDisposed();
@@ -216,7 +236,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 var refresh = items.GetType().GetMethod("Refresh", BindingFlags.Instance | BindingFlags.Public, null, Type.EmptyTypes, null);
                 if (refresh == null)
                     throw new MissingMethodException(items.GetType().FullName, "Refresh");
-
                 refresh.Invoke(items, null);
             });
         }
@@ -237,10 +256,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             SetProperty(controlName, "SelectedIndex", index);
         }
 
-        /// <summary>
-        /// Calls a public parameterless method such as Focus(), SelectAll(), DragMove()
-        /// or Items.Refresh() without introducing WPF compile-time types in the script.
-        /// </summary>
         public object InvokeMethod(string controlName, string methodName)
         {
             ThrowIfDisposed();
@@ -264,7 +279,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 return;
 
             CloseWindowCore();
-
             object parsed;
             try
             {
@@ -287,7 +301,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         {
             if (_allowWindowClose || !HideOnUserClose)
                 return;
-
             e.Cancel = true;
             if (_window != null)
                 _window.Hide();
@@ -297,9 +310,7 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         {
             if (_window == null)
                 throw new InvalidOperationException("No script window is loaded.");
-
-            if (string.IsNullOrWhiteSpace(controlName) ||
-                string.Equals(controlName, "$window", StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(controlName) || string.Equals(controlName, "$window", StringComparison.Ordinal))
                 return _window;
 
             var target = _window.FindName(controlName);
@@ -318,7 +329,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             var property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
             if (property == null || !property.CanWrite)
                 throw new MissingMemberException(target.GetType().FullName, propertyName);
-
             property.SetValue(target, Coerce(value, property.PropertyType), null);
         }
 
@@ -326,7 +336,6 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         {
             if (handlerType == null)
                 throw new InvalidOperationException("The requested event does not expose a handler type.");
-
             var invoke = handlerType.GetMethod("Invoke");
             if (invoke == null || invoke.ReturnType != typeof(void))
                 throw new NotSupportedException("Only void-returning UI events can be forwarded.");
@@ -334,15 +343,8 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             var parameters = invoke.GetParameters()
                 .Select((parameter, index) => Expression.Parameter(parameter.ParameterType, parameter.Name ?? "arg" + index))
                 .ToArray();
-
-            var callback = typeof(CrntlyScriptWindowBridge).GetMethod(
-                nameof(RaiseEvent), BindingFlags.Instance | BindingFlags.NonPublic);
-
-            var body = Expression.Call(
-                Expression.Constant(this),
-                callback,
-                Expression.Constant(eventKey));
-
+            var callback = typeof(CrntlyScriptWindowBridge).GetMethod(nameof(RaiseEvent), BindingFlags.Instance | BindingFlags.NonPublic);
+            var body = Expression.Call(Expression.Constant(this), callback, Expression.Constant(eventKey));
             return Expression.Lambda(handlerType, body, parameters).Compile();
         }
 
@@ -353,26 +355,37 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 callback(eventKey);
         }
 
+        private void RaiseRoutedEvent(string eventKey, RoutedEventArgs args)
+        {
+            var callback = RoutedEventRaised;
+            if (callback == null)
+                return;
+
+            var source = args == null ? null : args.OriginalSource as FrameworkElement;
+            callback(eventKey, source == null ? null : source.DataContext);
+        }
+
         private void UnbindAllEventsCore()
         {
             foreach (var binding in _boundEvents.Values)
             {
-                try
+                try { binding.EventInfo.RemoveEventHandler(binding.Target, binding.Handler); } catch { }
+            }
+            _boundEvents.Clear();
+
+            if (_window != null)
+            {
+                foreach (var binding in _boundRoutedEvents.Values)
                 {
-                    binding.EventInfo.RemoveEventHandler(binding.Target, binding.Handler);
-                }
-                catch
-                {
+                    try { _window.RemoveHandler(binding.RoutedEvent, binding.Handler); } catch { }
                 }
             }
-
-            _boundEvents.Clear();
+            _boundRoutedEvents.Clear();
         }
 
         private void CloseWindowCore()
         {
             UnbindAllEventsCore();
-
             if (_window != null)
             {
                 try
@@ -381,15 +394,9 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                     _window.Closing -= OnWindowClosing;
                     _window.Close();
                 }
-                catch
-                {
-                }
-                finally
-                {
-                    _allowWindowClose = false;
-                }
+                catch { }
+                finally { _allowWindowClose = false; }
             }
-
             _window = null;
             _loadedXaml = null;
         }
@@ -417,14 +424,12 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             var effectiveType = Nullable.GetUnderlyingType(targetType) ?? targetType;
             if (effectiveType.IsInstanceOfType(value))
                 return value;
-
             if (effectiveType.IsEnum)
             {
                 if (value is string)
                     return Enum.Parse(effectiveType, (string)value, true);
                 return Enum.ToObject(effectiveType, value);
             }
-
             return Convert.ChangeType(value, effectiveType, CultureInfo.InvariantCulture);
         }
 
@@ -438,17 +443,10 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         {
             if (_disposed)
                 return;
-
             _disposed = true;
             EventRaised = null;
-
-            try
-            {
-                CrntlyUiHost.Invoke(CloseWindowCore);
-            }
-            catch
-            {
-            }
+            RoutedEventRaised = null;
+            try { CrntlyUiHost.Invoke(CloseWindowCore); } catch { }
         }
 
         private sealed class BoundEvent
@@ -459,10 +457,20 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 EventInfo = eventInfo;
                 Handler = handler;
             }
-
             public object Target { get; }
             public EventInfo EventInfo { get; }
             public Delegate Handler { get; }
+        }
+
+        private sealed class BoundRoutedEvent
+        {
+            public BoundRoutedEvent(RoutedEvent routedEvent, RoutedEventHandler handler)
+            {
+                RoutedEvent = routedEvent;
+                Handler = handler;
+            }
+            public RoutedEvent RoutedEvent { get; }
+            public RoutedEventHandler Handler { get; }
         }
     }
 }
