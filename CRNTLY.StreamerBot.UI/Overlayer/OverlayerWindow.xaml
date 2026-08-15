@@ -86,8 +86,10 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="6" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="6" />
-            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="4" />
+            <ColumnDefinition Width="22" />
+            <ColumnDefinition Width="2" />
+            <ColumnDefinition Width="22" />
           </Grid.ColumnDefinitions>
 
           <Button x:Name="ServerButton" Grid.Column="0" Content="Start server"
@@ -98,10 +100,21 @@
                    Text="http://localhost:42069/"
                    VerticalContentAlignment="Center" />
 
-          <Button Grid.Column="4" Content="Copy"
-                  Style="{StaticResource Crntly.CompactButton}"
-                  Click="CopyUrl_Click" MinWidth="44"
-                  VerticalAlignment="Center" />
+          <Button Grid.Column="4"
+                  Style="{StaticResource Crntly.IconButton}"
+                  Click="CopyUrl_Click"
+                  ToolTip="Copy compositor URL">
+            <Path Style="{StaticResource Crntly.IconPath}"
+                  Data="M19,21H8C6.9,21 6,20.1 6,19V8C6,6.9 6.9,6 8,6H19C20.1,6 21,6.9 21,8V19C21,20.1 20.1,21 19,21 M16,3H5C3.9,3 3,3.9 3,5V16H5V5H16V3Z" />
+          </Button>
+
+          <Button x:Name="OpenPreviewButton" Grid.Column="6"
+                  Style="{StaticResource Crntly.IconButton}"
+                  Click="OpenPreview_Click"
+                  ToolTip="Open compositor preview in browser">
+            <Path Style="{StaticResource Crntly.IconPath}"
+                  Data="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z" />
+          </Button>
         </Grid>
       </Border>
 
@@ -117,19 +130,52 @@
         <Border Grid.Column="0" Style="{StaticResource Crntly.Card}" Padding="6">
           <Grid>
             <Grid.RowDefinitions>
-              <RowDefinition Height="27" />
-              <RowDefinition Height="*" />
               <RowDefinition Height="25" />
+              <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+
               <TextBlock Text="Overlays" Foreground="{DynamicResource Crntly.Text}"
                          FontWeight="SemiBold" FontSize="11"
                          VerticalAlignment="Center" />
-              <Button Content="+ Add"
-                      Style="{StaticResource Crntly.CompactButton}"
-                      HorizontalAlignment="Right" VerticalAlignment="Center"
-                      Click="Add_Click" />
+
+              <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Style="{StaticResource Crntly.IconButton}"
+                        Click="Add_Click" ToolTip="Add overlay">
+                  <Path Style="{StaticResource Crntly.IconPath}"
+                        Data="M11,5H13V11H19V13H13V19H11V13H5V11H11V5Z" />
+                </Button>
+                <Button x:Name="DuplicateButton"
+                        Style="{StaticResource Crntly.IconButton}"
+                        Click="Duplicate_Click" ToolTip="Duplicate selected overlay">
+                  <Path Style="{StaticResource Crntly.IconPath}"
+                        Data="M19,21H8C6.9,21 6,20.1 6,19V8C6,6.9 6.9,6 8,6H19C20.1,6 21,6.9 21,8V19C21,20.1 20.1,21 19,21 M16,3H5C3.9,3 3,3.9 3,5V16H5V5H16V3Z" />
+                </Button>
+                <Border Style="{StaticResource Crntly.ToolbarSeparator}" />
+                <Button x:Name="MoveUpButton"
+                        Style="{StaticResource Crntly.IconButton}"
+                        Click="MoveUp_Click" ToolTip="Move overlay up">
+                  <Path Style="{StaticResource Crntly.IconPath}"
+                        Data="M7,14L12,9L17,14H7Z" />
+                </Button>
+                <Button x:Name="MoveDownButton"
+                        Style="{StaticResource Crntly.IconButton}"
+                        Click="MoveDown_Click" ToolTip="Move overlay down">
+                  <Path Style="{StaticResource Crntly.IconPath}"
+                        Data="M7,10L12,15L17,10H7Z" />
+                </Button>
+                <Button x:Name="DeleteButton"
+                        Style="{StaticResource Crntly.DangerIconButton}"
+                        Click="Delete_Click" ToolTip="Delete selected overlay">
+                  <Path Style="{StaticResource Crntly.IconPath}"
+                        Data="M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19V4 M6,19C6,20.1 6.9,21 8,21H16C17.1,21 18,20.1 18,19V7H6V19Z" />
+                </Button>
+              </StackPanel>
             </Grid>
 
             <ListBox Grid.Row="1" x:Name="OverlayList"
@@ -166,24 +212,6 @@
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
-
-            <Grid Grid.Row="2" Margin="0,3,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <Button Grid.Column="0" Content="↑ Up"
-                      Style="{StaticResource Crntly.CompactButton}"
-                      Margin="0,0,2,0" Click="MoveUp_Click" />
-              <Button Grid.Column="1" Content="↓ Down"
-                      Style="{StaticResource Crntly.CompactButton}"
-                      Margin="2,0" Click="MoveDown_Click" />
-              <Button Grid.Column="2" Content="Delete"
-                      Style="{StaticResource Crntly.DangerButton}"
-                      Padding="6,1" MinHeight="21"
-                      Margin="2,0,0,0" Click="Delete_Click" />
-            </Grid>
           </Grid>
         </Border>
 
@@ -193,6 +221,11 @@
                         HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="0,0,2,0">
               <Grid Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                   <TextBlock Text="Overlay settings"
                              Foreground="{DynamicResource Crntly.Text}"
@@ -206,10 +239,20 @@
                   </StackPanel>
                 </StackPanel>
 
-                <CheckBox x:Name="EnabledBox" Content="Enabled"
-                          HorizontalAlignment="Right" VerticalAlignment="Center"
-                          Checked="EditorEnabledChanged"
-                          Unchecked="EditorEnabledChanged" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                  <Button x:Name="ResetLayoutButton"
+                          Style="{StaticResource Crntly.IconButton}"
+                          Click="ResetLayout_Click"
+                          Margin="0,0,5,0"
+                          ToolTip="Reset size and position to defaults">
+                    <Path Style="{StaticResource Crntly.IconPath}"
+                          Data="M12,5V2L8,6L12,10V7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19C8.69,19 6,16.31 6,13H4C4,17.42 7.58,21 12,21C16.42,21 20,17.42 20,13C20,8.58 16.42,5 12,5Z" />
+                  </Button>
+                  <CheckBox x:Name="EnabledBox" Content="Enabled"
+                            VerticalAlignment="Center"
+                            Checked="EditorEnabledChanged"
+                            Unchecked="EditorEnabledChanged" />
+                </StackPanel>
               </Grid>
 
               <Grid Margin="0,0,0,6">
@@ -226,7 +269,21 @@
 
                 <StackPanel Grid.Column="2">
                   <TextBlock Text="URL / LOCAL FILE" Style="{StaticResource Crntly.Label}" Margin="0,0,0,2" />
-                  <TextBox x:Name="UrlBox" TextChanged="EditorField_TextChanged" />
+                  <Grid>
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="3" />
+                      <ColumnDefinition Width="22" />
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="UrlBox" TextChanged="EditorField_TextChanged" />
+                    <Button x:Name="OpenSourceButton" Grid.Column="2"
+                            Style="{StaticResource Crntly.IconButton}"
+                            Click="OpenSource_Click"
+                            ToolTip="Open overlay source in browser">
+                      <Path Style="{StaticResource Crntly.IconPath}"
+                            Data="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z" />
+                    </Button>
+                  </Grid>
                 </StackPanel>
               </Grid>
 
