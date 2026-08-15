@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="CRNTLY • Overlayer"
-        Width="820" Height="500" MinWidth="740" MinHeight="450"
+        Width="780" Height="440" MinWidth="700" MinHeight="390"
         WindowStartupLocation="CenterScreen"
         WindowStyle="None" ResizeMode="CanResize"
         Background="{DynamicResource Crntly.Background}">
@@ -18,72 +18,54 @@
 
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight="0"
-                        ResizeBorderThickness="5"
-                        CornerRadius="8"
+                        ResizeBorderThickness="4"
+                        CornerRadius="3"
                         GlassFrameThickness="0" />
   </shell:WindowChrome.WindowChrome>
 
   <Border Background="{DynamicResource Crntly.Background}"
           BorderBrush="{DynamicResource Crntly.Border}"
           BorderThickness="1"
-          CornerRadius="{StaticResource Crntly.WindowRadius}">
+          CornerRadius="{DynamicResource Crntly.WindowRadius}">
     <Grid>
       <Grid.RowDefinitions>
-        <RowDefinition Height="{StaticResource Crntly.TitleBarHeight}" />
+        <RowDefinition Height="{DynamicResource Crntly.TitleBarHeight}" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="*" />
-        <RowDefinition Height="22" />
+        <RowDefinition Height="16" />
       </Grid.RowDefinitions>
 
-      <!-- title bar -->
+      <!-- compact desktop title bar -->
       <Border Grid.Row="0"
               Background="{DynamicResource Crntly.Surface}"
               BorderBrush="{DynamicResource Crntly.Border}"
               BorderThickness="0,0,0,1"
-              CornerRadius="8,8,0,0"
+              CornerRadius="3,3,0,0"
               MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-        <Grid Margin="10,0,6,0">
+        <Grid Margin="7,0,3,0">
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="30" />
-            <ColumnDefinition Width="30" />
+            <ColumnDefinition Width="24" />
+            <ColumnDefinition Width="24" />
           </Grid.ColumnDefinitions>
 
           <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-            <Border Width="22" Height="22"
-                    Background="{DynamicResource Crntly.AccentMuted}"
-                    BorderBrush="{DynamicResource Crntly.Accent}"
-                    BorderThickness="1"
-                    CornerRadius="5"
-                    Margin="0,0,7,0">
-              <TextBlock Text="C" Foreground="{DynamicResource Crntly.Accent}"
-                         FontWeight="Bold" FontSize="10"
-                         HorizontalAlignment="Center" VerticalAlignment="Center" />
-            </Border>
-            <TextBlock Text="Overlayer" Foreground="{DynamicResource Crntly.Text}"
-                       FontWeight="SemiBold" FontSize="12"
-                       VerticalAlignment="Center" />
-            <TextBlock Text="  ·  CRNTLY" Foreground="{DynamicResource Crntly.TextSubtle}"
-                       FontWeight="SemiBold" FontSize="9"
-                       VerticalAlignment="Center" />
+            <TextBlock Text="CRNTLY" Foreground="{DynamicResource Crntly.TextMuted}"
+                       FontWeight="SemiBold" FontSize="9" VerticalAlignment="Center" />
+            <TextBlock Text="  /  Overlayer" Foreground="{DynamicResource Crntly.Text}"
+                       FontWeight="SemiBold" FontSize="10" VerticalAlignment="Center" />
           </StackPanel>
 
-          <Border Grid.Column="1" x:Name="ServerBadge"
-                  Background="{DynamicResource Crntly.SurfaceRaised}"
-                  BorderBrush="{DynamicResource Crntly.Border}"
-                  BorderThickness="1"
-                  CornerRadius="10"
-                  Padding="7,3" Margin="0,0,6,0"
-                  VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal">
-              <Ellipse x:Name="ServerDot" Width="5" Height="5"
-                       Fill="{DynamicResource Crntly.TextMuted}" Margin="0,0,5,0" />
-              <TextBlock x:Name="ServerBadgeText" Text="SERVER OFFLINE"
-                         Foreground="{DynamicResource Crntly.TextMuted}"
-                         FontSize="8" FontWeight="SemiBold" />
-            </StackPanel>
-          </Border>
+          <StackPanel Grid.Column="1" Orientation="Horizontal"
+                      Margin="0,0,6,0" VerticalAlignment="Center">
+            <Ellipse x:Name="ServerDot" Width="5" Height="5"
+                     Fill="{DynamicResource Crntly.TextMuted}" Margin="0,0,5,0" />
+            <TextBlock x:Name="ServerBadgeText" Text="SERVER OFFLINE"
+                       Foreground="{DynamicResource Crntly.TextMuted}"
+                       FontSize="8" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <Border x:Name="ServerBadge" Width="0" Height="0" Visibility="Collapsed" />
+          </StackPanel>
 
           <Button Grid.Column="2" Content="—"
                   Style="{StaticResource Crntly.TitleButton}"
@@ -98,19 +80,19 @@
 
       <!-- compositor connection -->
       <Border Grid.Row="1" Style="{StaticResource Crntly.Card}"
-              Margin="10,8,10,6" Padding="8">
+              Margin="7,5,7,4" Padding="5">
         <Grid>
           <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="6" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="8" />
+            <ColumnDefinition Width="6" />
             <ColumnDefinition Width="Auto" />
           </Grid.ColumnDefinitions>
 
           <Button x:Name="ServerButton" Grid.Column="0" Content="Start server"
                   Style="{StaticResource Crntly.PrimaryButton}"
-                  Click="ServerButton_Click" MinWidth="96" />
+                  Click="ServerButton_Click" MinWidth="84" />
 
           <TextBox x:Name="ServerUrlBox" Grid.Column="2" IsReadOnly="True"
                    Text="http://localhost:42069/"
@@ -118,31 +100,31 @@
 
           <Button Grid.Column="4" Content="Copy"
                   Style="{StaticResource Crntly.CompactButton}"
-                  Click="CopyUrl_Click" MinWidth="52"
+                  Click="CopyUrl_Click" MinWidth="44"
                   VerticalAlignment="Center" />
         </Grid>
       </Border>
 
       <!-- workspace -->
-      <Grid Grid.Row="2" Margin="10,0,10,7">
+      <Grid Grid.Row="2" Margin="7,0,7,4">
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="250" />
-          <ColumnDefinition Width="8" />
+          <ColumnDefinition Width="225" />
+          <ColumnDefinition Width="6" />
           <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
         <!-- overlay list -->
-        <Border Grid.Column="0" Style="{StaticResource Crntly.Card}" Padding="8">
+        <Border Grid.Column="0" Style="{StaticResource Crntly.Card}" Padding="6">
           <Grid>
             <Grid.RowDefinitions>
-              <RowDefinition Height="34" />
+              <RowDefinition Height="27" />
               <RowDefinition Height="*" />
-              <RowDefinition Height="30" />
+              <RowDefinition Height="25" />
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0">
               <TextBlock Text="Overlays" Foreground="{DynamicResource Crntly.Text}"
-                         FontWeight="SemiBold" FontSize="12"
+                         FontWeight="SemiBold" FontSize="11"
                          VerticalAlignment="Center" />
               <Button Content="+ Add"
                       Style="{StaticResource Crntly.CompactButton}"
@@ -156,7 +138,7 @@
                 <DataTemplate>
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="35" />
+                      <ColumnDefinition Width="30" />
                       <ColumnDefinition Width="*" />
                       <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
@@ -172,20 +154,20 @@
                                  TextTrimming="CharacterEllipsis" />
                       <TextBlock Text="{Binding Url}"
                                  Foreground="{DynamicResource Crntly.TextSubtle}"
-                                 FontSize="8" Margin="0,1,6,0"
+                                 FontSize="8" Margin="0,1,5,0"
                                  TextTrimming="CharacterEllipsis" />
                     </StackPanel>
 
                     <TextBlock Grid.Column="2" Text="{Binding SourceKind}"
                                Foreground="{DynamicResource Crntly.TextSubtle}"
                                FontSize="7" FontWeight="SemiBold"
-                               VerticalAlignment="Top" Margin="4,1,0,0" />
+                               VerticalAlignment="Top" Margin="3,1,0,0" />
                   </Grid>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
 
-            <Grid Grid.Row="2" Margin="0,5,0,0">
+            <Grid Grid.Row="2" Margin="0,3,0,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="*" />
@@ -193,32 +175,31 @@
               </Grid.ColumnDefinitions>
               <Button Grid.Column="0" Content="↑ Up"
                       Style="{StaticResource Crntly.CompactButton}"
-                      Margin="0,0,3,0" Click="MoveUp_Click" />
+                      Margin="0,0,2,0" Click="MoveUp_Click" />
               <Button Grid.Column="1" Content="↓ Down"
                       Style="{StaticResource Crntly.CompactButton}"
-                      Margin="3,0" Click="MoveDown_Click" />
+                      Margin="2,0" Click="MoveDown_Click" />
               <Button Grid.Column="2" Content="Delete"
                       Style="{StaticResource Crntly.DangerButton}"
-                      Padding="7,3" MinHeight="24"
-                      Margin="3,0,0,0" Click="Delete_Click" />
+                      Padding="6,1" MinHeight="21"
+                      Margin="2,0,0,0" Click="Delete_Click" />
             </Grid>
           </Grid>
         </Border>
 
         <!-- editor -->
-        <Border Grid.Column="2" Style="{StaticResource Crntly.Card}" Padding="10">
+        <Border Grid.Column="2" Style="{StaticResource Crntly.Card}" Padding="7">
           <ScrollViewer VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="0,0,4,0">
-              <!-- editor header: status + enabled live here instead of consuming another card -->
-              <Grid Margin="0,0,0,9">
+            <StackPanel Margin="0,0,2,0">
+              <Grid Margin="0,0,0,6">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                   <TextBlock Text="Overlay settings"
                              Foreground="{DynamicResource Crntly.Text}"
-                             FontWeight="SemiBold" FontSize="14" />
-                  <StackPanel Orientation="Horizontal" Margin="10,0,0,0" VerticalAlignment="Center">
-                    <Ellipse x:Name="EditorStatusDot" Width="5" Height="5"
-                             Fill="{DynamicResource Crntly.TextMuted}" Margin="0,0,5,0" />
+                             FontWeight="SemiBold" FontSize="12" />
+                  <StackPanel Orientation="Horizontal" Margin="7,0,0,0" VerticalAlignment="Center">
+                    <Ellipse x:Name="EditorStatusDot" Width="4" Height="4"
+                             Fill="{DynamicResource Crntly.TextMuted}" Margin="0,0,4,0" />
                     <TextBlock x:Name="EditorStatusText" Text="Autosave"
                                Foreground="{DynamicResource Crntly.TextMuted}"
                                FontSize="8" />
@@ -231,61 +212,58 @@
                           Unchecked="EditorEnabledChanged" />
               </Grid>
 
-              <!-- identity row -->
-              <Grid Margin="0,0,0,8">
+              <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="0.34*" />
-                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="6" />
                   <ColumnDefinition Width="0.66*" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                  <TextBlock Text="NAME" Style="{StaticResource Crntly.Label}" Margin="0,0,0,3" />
+                  <TextBlock Text="NAME" Style="{StaticResource Crntly.Label}" Margin="0,0,0,2" />
                   <TextBox x:Name="NameBox" TextChanged="EditorField_TextChanged" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
-                  <TextBlock Text="URL / LOCAL FILE" Style="{StaticResource Crntly.Label}" Margin="0,0,0,3" />
+                  <TextBlock Text="URL / LOCAL FILE" Style="{StaticResource Crntly.Label}" Margin="0,0,0,2" />
                   <TextBox x:Name="UrlBox" TextChanged="EditorField_TextChanged" />
                 </StackPanel>
               </Grid>
 
-              <!-- size row -->
-              <Grid Margin="0,0,0,8">
+              <Grid Margin="0,0,0,6">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
-                  <ColumnDefinition Width="8" />
+                  <ColumnDefinition Width="6" />
                   <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0">
-                  <TextBlock Text="WIDTH" Style="{StaticResource Crntly.Label}" Margin="0,0,0,3" />
+                  <TextBlock Text="WIDTH" Style="{StaticResource Crntly.Label}" Margin="0,0,0,2" />
                   <TextBox x:Name="WidthBox" TextChanged="EditorField_TextChanged" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="2">
-                  <TextBlock Text="HEIGHT" Style="{StaticResource Crntly.Label}" Margin="0,0,0,3" />
+                  <TextBlock Text="HEIGHT" Style="{StaticResource Crntly.Label}" Margin="0,0,0,2" />
                   <TextBox x:Name="HeightBox" TextChanged="EditorField_TextChanged" />
                 </StackPanel>
               </Grid>
 
-              <!-- position -->
-              <Border Style="{StaticResource Crntly.SubtleCard}" Padding="9">
+              <Border Style="{StaticResource Crntly.SubtleCard}" Padding="6">
                 <StackPanel>
-                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                  <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
                     <TextBlock Text="Position" Foreground="{DynamicResource Crntly.Text}"
                                FontWeight="SemiBold" FontSize="10" />
-                    <TextBlock Text="  ·  live preview"
+                    <TextBlock Text="  ·  live"
                                Foreground="{DynamicResource Crntly.TextSubtle}"
                                FontSize="8" VerticalAlignment="Center" />
                   </StackPanel>
 
-                  <Grid Margin="0,0,0,6">
+                  <Grid Margin="0,0,0,4">
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="16" />
+                      <ColumnDefinition Width="14" />
                       <ColumnDefinition Width="*" />
-                      <ColumnDefinition Width="8" />
-                      <ColumnDefinition Width="68" />
+                      <ColumnDefinition Width="6" />
+                      <ColumnDefinition Width="58" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="X"
                                Foreground="{DynamicResource Crntly.TextMuted}"
@@ -305,10 +283,10 @@
 
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="16" />
+                      <ColumnDefinition Width="14" />
                       <ColumnDefinition Width="*" />
-                      <ColumnDefinition Width="8" />
-                      <ColumnDefinition Width="68" />
+                      <ColumnDefinition Width="6" />
+                      <ColumnDefinition Width="58" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="Y"
                                Foreground="{DynamicResource Crntly.TextMuted}"
@@ -332,13 +310,13 @@
         </Border>
       </Grid>
 
-      <Grid Grid.Row="3" Margin="11,0">
-        <TextBlock Text="CRNTLY  •  livestreaming.tools"
+      <Grid Grid.Row="3" Margin="8,0">
+        <TextBlock Text="CRNTLY • livestreaming.tools"
                    Foreground="{DynamicResource Crntly.TextSubtle}"
-                   FontSize="8" VerticalAlignment="Center" />
-        <TextBlock Text="single-browser-source compositor"
+                   FontSize="7" VerticalAlignment="Center" />
+        <TextBlock Text="single-source compositor"
                    Foreground="{DynamicResource Crntly.TextSubtle}"
-                   FontSize="8" HorizontalAlignment="Right"
+                   FontSize="7" HorizontalAlignment="Right"
                    VerticalAlignment="Center" />
       </Grid>
     </Grid>
