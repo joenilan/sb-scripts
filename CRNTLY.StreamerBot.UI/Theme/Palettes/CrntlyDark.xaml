@@ -12,12 +12,15 @@
   <Color x:Key="Crntly.TextMutedColor">#A1A1AA</Color>
   <Color x:Key="Crntly.TextSubtleColor">#71717A</Color>
   <Color x:Key="Crntly.AccentColor">#8B5CF6</Color>
-  <Color x:Key="Crntly.AccentHoverColor">#9F7AEA</Color>
+  <Color x:Key="Crntly.AccentHoverColor">#A78BFA</Color>
   <Color x:Key="Crntly.AccentPressedColor">#7C3AED</Color>
   <Color x:Key="Crntly.AccentMutedColor">#241B37</Color>
   <Color x:Key="Crntly.SuccessColor">#34D399</Color>
   <Color x:Key="Crntly.DangerColor">#FB7185</Color>
+  <Color x:Key="Crntly.DangerHoverColor">#FDA4AF</Color>
+  <Color x:Key="Crntly.DangerPressedColor">#F43F5E</Color>
   <Color x:Key="Crntly.DangerMutedColor">#321820</Color>
+  <Color x:Key="Crntly.DangerMutedHoverColor">#481C27</Color>
 
   <SolidColorBrush x:Key="Crntly.Background" Color="{StaticResource Crntly.BackgroundColor}" />
   <SolidColorBrush x:Key="Crntly.Surface" Color="{StaticResource Crntly.SurfaceColor}" />
@@ -34,5 +37,8 @@
   <SolidColorBrush x:Key="Crntly.AccentMuted" Color="{StaticResource Crntly.AccentMutedColor}" />
   <SolidColorBrush x:Key="Crntly.Success" Color="{StaticResource Crntly.SuccessColor}" />
   <SolidColorBrush x:Key="Crntly.Danger" Color="{StaticResource Crntly.DangerColor}" />
+  <SolidColorBrush x:Key="Crntly.DangerHover" Color="{StaticResource Crntly.DangerHoverColor}" />
+  <SolidColorBrush x:Key="Crntly.DangerPressed" Color="{StaticResource Crntly.DangerPressedColor}" />
   <SolidColorBrush x:Key="Crntly.DangerMuted" Color="{StaticResource Crntly.DangerMutedColor}" />
+  <SolidColorBrush x:Key="Crntly.DangerMutedHover" Color="{StaticResource Crntly.DangerMutedHoverColor}" />
 </ResourceDictionary>
