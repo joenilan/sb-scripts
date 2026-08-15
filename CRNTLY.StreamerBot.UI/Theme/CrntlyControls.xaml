@@ -169,14 +169,59 @@
     </Setter>
   </Style>
 
-  <Style x:Key="Crntly.TitleButton" TargetType="Button" BasedOn="{StaticResource Crntly.Button}">
+  <!-- Title-bar actions share compact geometry, but not semantic state. -->
+  <Style x:Key="Crntly.TitleButton" TargetType="Button">
     <Setter Property="Foreground" Value="{DynamicResource Crntly.TextMuted}" />
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="BorderThickness" Value="0" />
     <Setter Property="Padding" Value="0" />
     <Setter Property="MinWidth" Value="24" />
     <Setter Property="MinHeight" Value="22" />
     <Setter Property="FontSize" Value="10" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Chrome"
+                  Background="{TemplateBinding Background}"
+                  CornerRadius="1">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentMuted}" />
+              <Setter Property="Foreground" Value="{DynamicResource Crntly.AccentHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentPressed}" />
+              <Setter Property="Foreground" Value="White" />
+            </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="Content" Value="×" />
+                <Condition Property="IsMouseOver" Value="True" />
+              </MultiTrigger.Conditions>
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.DangerMuted}" />
+              <Setter Property="Foreground" Value="{DynamicResource Crntly.DangerHover}" />
+            </MultiTrigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="Content" Value="×" />
+                <Condition Property="IsPressed" Value="True" />
+              </MultiTrigger.Conditions>
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.DangerPressed}" />
+              <Setter Property="Foreground" Value="White" />
+            </MultiTrigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.34" />
+              <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="Crntly.TextBox" TargetType="TextBox">
