@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
@@ -34,6 +35,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
             OverlayList.ItemsSource = Items;
             Closing += OnClosing;
             SetEditorEnabled(false);
+            OpenPreviewButton.IsEnabled = false;
+            UpdateActionStates();
             _loadingEditor = false;
             SetEditorStatus("Autosave", "Crntly.TextMuted");
         }
@@ -70,6 +73,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             finally
             {
                 _loadingItems = false;
+                UpdateActionStates();
             }
         }
 
@@ -81,6 +85,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             ServerBadgeText.Text = running ? "SERVER ONLINE" : "SERVER OFFLINE";
             ServerBadgeText.Foreground = (Brush)FindResource(running ? "Crntly.Success" : "Crntly.TextMuted");
             ServerDot.Fill = (Brush)FindResource(running ? "Crntly.Success" : "Crntly.TextMuted");
+            OpenPreviewButton.IsEnabled = running;
         }
 
         public void CloseForShutdown()
@@ -127,8 +132,32 @@ namespace Crntly.StreamerBot.UI.Overlayer
 
         private void CopyUrl_Click(object sender, RoutedEventArgs e)
         {
-            if (!string.IsNullOrWhiteSpace(ServerUrlBox.Text))
+            if (string.IsNullOrWhiteSpace(ServerUrlBox.Text))
+                return;
+
+            try
+            {
                 Clipboard.SetText(ServerUrlBox.Text);
+            }
+            catch
+            {
+                // Clipboard can briefly be locked by another process. A failed copy
+                // should never interfere with the compositor or editor state.
+            }
+        }
+
+        private void OpenPreview_Click(object sender, RoutedEventArgs e)
+        {
+            if (!IsServerRunning)
+                return;
+
+            OpenExternal(ServerUrlBox.Text, false);
+        }
+
+        private void OpenSource_Click(object sender, RoutedEventArgs e)
+        {
+            if (!OpenExternal(UrlBox.Text, true))
+                SetEditorStatus("Check URL", "Crntly.Danger");
         }
 
         private void Add_Click(object sender, RoutedEventArgs e)
@@ -140,6 +169,36 @@ namespace Crntly.StreamerBot.UI.Overlayer
             NameBox.Focus();
             NameBox.SelectAll();
             SetEditorStatus("Enter a URL to save", "Crntly.TextMuted");
+            UpdateActionStates();
+        }
+
+        private void Duplicate_Click(object sender, RoutedEventArgs e)
+        {
+            var source = OverlayList.SelectedItem as OverlayItem;
+            if (source == null)
+                return;
+
+            FlushPendingAutosave();
+
+            Uri ignored;
+            if (!TryGetSupportedUri(source.Url, out ignored))
+            {
+                SetEditorStatus("Add a valid URL first", "Crntly.Danger");
+                return;
+            }
+
+            var copy = source.Clone();
+            copy.Id = Guid.NewGuid().ToString("N");
+            copy.Name = string.IsNullOrWhiteSpace(source.Name) ? "Overlay copy" : source.Name + " copy";
+            copy.IsPreview = false;
+
+            var insertAt = Math.Max(0, OverlayList.SelectedIndex + 1);
+            Items.Insert(insertAt, copy);
+            OverlayChanged?.Invoke(this, new OverlayItemEventArgs(copy.Clone()));
+            RaiseOrderChanged();
+            OverlayList.SelectedItem = copy;
+            SetEditorStatus("Duplicated", "Crntly.Success");
+            UpdateActionStates();
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
@@ -168,6 +227,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 ClearEditorSafely();
                 SetEditorEnabled(false);
             }
+
+            UpdateActionStates();
         }
 
         private void MoveUp_Click(object sender, RoutedEventArgs e)
@@ -180,6 +241,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             Items.Move(index, index - 1);
             OverlayList.SelectedIndex = index - 1;
             RaiseOrderChanged();
+            UpdateActionStates();
         }
 
         private void MoveDown_Click(object sender, RoutedEventArgs e)
@@ -192,6 +254,39 @@ namespace Crntly.StreamerBot.UI.Overlayer
             Items.Move(index, index + 1);
             OverlayList.SelectedIndex = index + 1;
             RaiseOrderChanged();
+            UpdateActionStates();
+        }
+
+        private void ResetLayout_Click(object sender, RoutedEventArgs e)
+        {
+            var item = _editingItem;
+            if (item == null)
+                return;
+
+            _saveDebounceTimer.Stop();
+            _loadingEditor = true;
+            try
+            {
+                WidthBox.Text = "100%";
+                HeightBox.Text = "100%";
+                LeftBox.Text = "0";
+                TopBox.Text = "0";
+                SyncPositionSlider(LeftBox, LeftSlider);
+                SyncPositionSlider(TopBox, TopSlider);
+            }
+            finally
+            {
+                _loadingEditor = false;
+            }
+
+            var preview = item.Clone();
+            preview.Width = "100%";
+            preview.Height = "100%";
+            preview.Left = "0px";
+            preview.Top = "0px";
+            preview.IsPreview = true;
+            OverlayChanged?.Invoke(this, new OverlayItemEventArgs(preview));
+            ScheduleAutosave();
         }
 
         private void OverlayList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -206,6 +301,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             {
                 ClearEditorSafely();
                 SetEditorEnabled(false);
+                UpdateActionStates();
                 return;
             }
 
@@ -227,6 +323,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             finally
             {
                 _loadingEditor = false;
+                UpdateActionStates();
             }
         }
 
@@ -269,6 +366,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 SyncPositionSlider(LeftBox, LeftSlider);
             else if (ReferenceEquals(sender, TopBox))
                 SyncPositionSlider(TopBox, TopSlider);
+            else if (ReferenceEquals(sender, UrlBox))
+                UpdateActionStates();
 
             ScheduleAutosave();
         }
@@ -383,6 +482,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             }
 
             SetEditorStatus("Saved", "Crntly.Success");
+            UpdateActionStates();
             return true;
         }
 
@@ -401,8 +501,7 @@ namespace Crntly.StreamerBot.UI.Overlayer
             }
 
             Uri uri;
-            if (!Uri.TryCreate(UrlBox.Text.Trim(), UriKind.Absolute, out uri) ||
-                (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps && uri.Scheme != Uri.UriSchemeFile))
+            if (!TryGetSupportedUri(UrlBox.Text, out uri))
             {
                 message = "Enter a valid URL";
                 return false;
@@ -429,6 +528,60 @@ namespace Crntly.StreamerBot.UI.Overlayer
         {
             OverlayOrderChanged?.Invoke(this,
                 new OverlayOrderEventArgs(Items.Select(x => x.Clone()).ToList()));
+        }
+
+        private void UpdateActionStates()
+        {
+            if (DuplicateButton == null || MoveUpButton == null || MoveDownButton == null ||
+                DeleteButton == null || ResetLayoutButton == null || OpenSourceButton == null)
+                return;
+
+            var item = OverlayList == null ? null : OverlayList.SelectedItem as OverlayItem;
+            var index = OverlayList == null ? -1 : OverlayList.SelectedIndex;
+            var hasSelection = item != null;
+
+            Uri uri;
+            var currentUrl = UrlBox == null ? null : UrlBox.Text;
+            var canOpenSource = hasSelection && TryGetSupportedUri(currentUrl, out uri);
+            var canDuplicate = hasSelection && TryGetSupportedUri(item.Url, out uri);
+
+            DuplicateButton.IsEnabled = canDuplicate;
+            MoveUpButton.IsEnabled = hasSelection && index > 0;
+            MoveDownButton.IsEnabled = hasSelection && index >= 0 && index < Items.Count - 1;
+            DeleteButton.IsEnabled = hasSelection;
+            ResetLayoutButton.IsEnabled = hasSelection;
+            OpenSourceButton.IsEnabled = canOpenSource;
+        }
+
+        private bool OpenExternal(string value, bool reportEditorError)
+        {
+            Uri uri;
+            if (!TryGetSupportedUri(value, out uri))
+                return false;
+
+            try
+            {
+                Process.Start(uri.IsFile ? uri.LocalPath : uri.AbsoluteUri);
+                return true;
+            }
+            catch
+            {
+                if (reportEditorError)
+                    SetEditorStatus("Could not open", "Crntly.Danger");
+                return false;
+            }
+        }
+
+        private static bool TryGetSupportedUri(string value, out Uri uri)
+        {
+            uri = null;
+            if (string.IsNullOrWhiteSpace(value) ||
+                !Uri.TryCreate(value.Trim(), UriKind.Absolute, out uri))
+                return false;
+
+            return uri.Scheme == Uri.UriSchemeHttp ||
+                   uri.Scheme == Uri.UriSchemeHttps ||
+                   uri.Scheme == Uri.UriSchemeFile;
         }
 
         private static bool TryNormalizeCssLength(string value, string fallback, bool allowNegative, out string normalized)
@@ -596,6 +749,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
             LeftBox.IsEnabled = enabled;
             TopBox.IsEnabled = enabled;
             EnabledBox.IsEnabled = enabled;
+            ResetLayoutButton.IsEnabled = enabled;
+            OpenSourceButton.IsEnabled = enabled && TryGetSupportedUri(UrlBox.Text, out _);
 
             if (!enabled)
             {
