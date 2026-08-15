@@ -44,6 +44,13 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         public Action<string, object> RoutedEventRaised { get; set; }
 
         /// <summary>
+        /// Stores the most recent optional routed-event binding failure. Template-level
+        /// event wiring is intentionally best-effort so it cannot abort an otherwise
+        /// usable script window during startup.
+        /// </summary>
+        public string LastBindingError { get; private set; }
+
+        /// <summary>
         /// Script tools normally behave like Streamer.bot utility panels: closing the
         /// window hides it while keeping its runtime alive. Set false for normal WPF
         /// close semantics. Dispose/Close always performs a real close.
@@ -130,6 +137,9 @@ namespace Crntly.StreamerBot.UI.ScriptHost
         /// an assembly-qualified WPF owner type plus its public static RoutedEvent field,
         /// for example ToggleButton + CheckedEvent. The callback receives eventKey and
         /// the OriginalSource DataContext, which is typically the script-owned row item.
+        ///
+        /// Routed/template event binding is best-effort. A failure is recorded in
+        /// LastBindingError instead of aborting the entire script window initialization.
         /// </summary>
         public void BindRoutedEvent(string ownerTypeName, string routedEventFieldName, string eventKey)
         {
@@ -149,18 +159,30 @@ namespace Crntly.StreamerBot.UI.ScriptHost
                 if (_boundRoutedEvents.TryGetValue(bindingKey, out existing))
                     return;
 
-                var ownerType = Type.GetType(ownerTypeName, false);
-                if (ownerType == null)
-                    throw new TypeLoadException("Unable to resolve routed-event owner type '" + ownerTypeName + "'.");
+                try
+                {
+                    var ownerType = ResolveType(ownerTypeName);
+                    if (ownerType == null)
+                        throw new TypeLoadException("Unable to resolve routed-event owner type '" + ownerTypeName + "'.");
 
-                var field = ownerType.GetField(routedEventFieldName, BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-                var routedEvent = field == null ? null : field.GetValue(null) as RoutedEvent;
-                if (routedEvent == null)
-                    throw new MissingMemberException(ownerType.FullName, routedEventFieldName);
+                    var field = ownerType.GetField(
+                        routedEventFieldName,
+                        BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+                    var routedEvent = field == null ? null : field.GetValue(null) as RoutedEvent;
+                    if (routedEvent == null)
+                        throw new MissingMemberException(ownerType.FullName, routedEventFieldName);
 
-                RoutedEventHandler handler = (sender, args) => RaiseRoutedEvent(eventKey, args);
-                _window.AddHandler(routedEvent, handler, true);
-                _boundRoutedEvents[bindingKey] = new BoundRoutedEvent(routedEvent, handler);
+                    RoutedEventHandler handler = (sender, args) => RaiseRoutedEvent(eventKey, args);
+                    _window.AddHandler(routedEvent, handler, true);
+                    _boundRoutedEvents[bindingKey] = new BoundRoutedEvent(routedEvent, handler);
+                    LastBindingError = null;
+                }
+                catch (Exception ex)
+                {
+                    LastBindingError =
+                        "Unable to bind routed event '" + routedEventFieldName +
+                        "' for '" + ownerTypeName + "': " + ex.Message;
+                }
             });
         }
 
@@ -330,6 +352,31 @@ namespace Crntly.StreamerBot.UI.ScriptHost
             if (property == null || !property.CanWrite)
                 throw new MissingMemberException(target.GetType().FullName, propertyName);
             property.SetValue(target, Coerce(value, property.PropertyType), null);
+        }
+
+        private static Type ResolveType(string typeName)
+        {
+            var type = Type.GetType(typeName, false);
+            if (type != null)
+                return type;
+
+            var comma = typeName.IndexOf(',');
+            var fullName = comma >= 0 ? typeName.Substring(0, comma).Trim() : typeName.Trim();
+
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    type = assembly.GetType(fullName, false);
+                    if (type != null)
+                        return type;
+                }
+                catch
+                {
+                }
+            }
+
+            return null;
         }
 
         private Delegate CreateEventForwarder(Type handlerType, string eventKey)
