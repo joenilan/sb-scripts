@@ -207,7 +207,6 @@
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="36" />
-              <ColumnDefinition Width="Auto" />
               <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Border x:Name="Track"
@@ -222,7 +221,7 @@
                          HorizontalAlignment="Left" />
               </Grid>
             </Border>
-            <ContentPresenter Grid.Column="2"
+            <ContentPresenter Grid.Column="1"
                               Margin="8,0,0,0"
                               VerticalAlignment="Center"
                               RecognizesAccessKey="True" />
@@ -268,7 +267,7 @@
                    VerticalAlignment="Center">
               <Track.DecreaseRepeatButton>
                 <RepeatButton Command="{x:Static Slider.DecreaseLarge}"
-                              Background="{TemplateBinding Foreground}"
+                              Background="{StaticResource Crntly.Accent}"
                               Focusable="False">
                   <RepeatButton.Template>
                     <ControlTemplate TargetType="RepeatButton">
