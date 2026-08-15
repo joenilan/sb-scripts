@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Threading;
 using System.Windows.Threading;
 
@@ -13,12 +14,19 @@ namespace Crntly.StreamerBot.UI
     public static class CrntlyUiHost
     {
         private const int ErrorNotEnoughQuota = 1816;
+        private const string WindowsFormsAssemblyName =
+            "System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089";
+        private const string PresentationFrameworkAssemblyName =
+            "PresentationFramework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35";
 
         private static readonly object Gate = new object();
         private static Dispatcher _dispatcher;
         private static Thread _thread;
         private static int _recoverableExceptionCount;
         private static string _lastRecoverableException;
+        private static bool _frameworkResolverInstalled;
+        private static Assembly _windowsFormsAssembly;
+        private static Assembly _presentationFrameworkAssembly;
 
         public static bool IsRunning
         {
@@ -93,6 +101,8 @@ namespace Crntly.StreamerBot.UI
 
         private static void EnsureStarted()
         {
+            EnsureFrameworkUiAssembliesLoaded();
+
             lock (Gate)
             {
                 if (_dispatcher != null && !_dispatcher.HasShutdownStarted)
@@ -134,6 +144,55 @@ namespace Crntly.StreamerBot.UI
                         throw new InvalidOperationException("Unable to start CRNTLY WPF dispatcher.");
                 }
             }
+        }
+
+        private static void EnsureFrameworkUiAssembliesLoaded()
+        {
+            lock (Gate)
+            {
+                if (_windowsFormsAssembly == null)
+                    _windowsFormsAssembly = TryLoadFrameworkAssembly(WindowsFormsAssemblyName);
+                if (_presentationFrameworkAssembly == null)
+                    _presentationFrameworkAssembly = TryLoadFrameworkAssembly(PresentationFrameworkAssemblyName);
+
+                if (_frameworkResolverInstalled)
+                    return;
+
+                AppDomain.CurrentDomain.AssemblyResolve += OnFrameworkAssemblyResolve;
+                _frameworkResolverInstalled = true;
+            }
+        }
+
+        private static Assembly TryLoadFrameworkAssembly(string displayName)
+        {
+            try
+            {
+                return Assembly.Load(displayName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Assembly OnFrameworkAssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            string simpleName;
+            try
+            {
+                simpleName = new AssemblyName(args.Name).Name;
+            }
+            catch
+            {
+                return null;
+            }
+
+            if (string.Equals(simpleName, "System.Windows.Forms", StringComparison.OrdinalIgnoreCase))
+                return _windowsFormsAssembly;
+            if (string.Equals(simpleName, "PresentationFramework", StringComparison.OrdinalIgnoreCase))
+                return _presentationFrameworkAssembly;
+
+            return null;
         }
 
         private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
