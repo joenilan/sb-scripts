@@ -5,7 +5,8 @@
   <!-- Geometry/density only. Swap this dictionary later for Comfortable without changing controls. -->
   <sys:Double x:Key="Crntly.ControlHeight">28</sys:Double>
   <sys:Double x:Key="Crntly.SmallControlHeight">24</sys:Double>
-  <sys:Double x:Key="Crntly.TitleBarHeight">42</sys:Double>
+  <!-- RowDefinition.Height is GridLength, not Double. Keep row/column sizing tokens strongly typed. -->
+  <GridLength x:Key="Crntly.TitleBarHeight">42</GridLength>
   <sys:Double x:Key="Crntly.ScrollBarSize">7</sys:Double>
   <sys:Double x:Key="Crntly.FontSize">10</sys:Double>
   <sys:Double x:Key="Crntly.SmallFontSize">9</sys:Double>
