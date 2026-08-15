@@ -4,5 +4,6 @@
     <ResourceDictionary Source="/CRNTLY.StreamerBot.UI;component/Theme/Palettes/CrntlyDark.xaml" />
     <ResourceDictionary Source="/CRNTLY.StreamerBot.UI;component/Theme/Density/Compact.xaml" />
     <ResourceDictionary Source="/CRNTLY.StreamerBot.UI;component/Theme/CrntlyControls.xaml" />
+    <ResourceDictionary Source="/CRNTLY.StreamerBot.UI;component/Theme/CrntlyUtilities.xaml" />
   </ResourceDictionary.MergedDictionaries>
 </ResourceDictionary>
