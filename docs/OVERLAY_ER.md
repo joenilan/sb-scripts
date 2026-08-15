@@ -1,4 +1,4 @@
-# Overlay(er) v2.1.0
+# Overlay(er) v2.2.0
 
 `overlay-er.cs` is the current **Overlay(er)** release. It modernizes the original WinForms v1.0.0 tool while preserving its core promise: **many overlays through one OBS Browser Source**.
 
@@ -6,8 +6,8 @@ The current architecture deliberately keeps the application in the Streamer.bot 
 
 ## Versions
 
-- Overlay(er): **v2.1.0**
-- CRNTLY.StreamerBot.UI runtime: **v1.0.0**
+- Overlay(er): **v2.2.0**
+- CRNTLY.StreamerBot.UI runtime: **v1.0.1**
 
 The management window displays both versions in its footer so a stale pasted script or stale loaded DLL is immediately visible during testing.
 
@@ -19,6 +19,7 @@ The management window displays both versions in its footer so a stale pasted scr
 - Stop using WinForms controls as backend state.
 - Keep the existing `overlayer/listview.json` data readable and mostly backward-compatible.
 - Isolate local-file routes per overlay.
+- Let local overlays be selected from a native file picker instead of manually constructing `file:///` URLs.
 - Stream local assets instead of allocating entire files in memory.
 - Push compositor changes live while OBS keeps the Browser Source loaded.
 - Let the Streamer.bot action compile even when the shared CRNTLY UI DLL is not installed yet.
@@ -74,6 +75,7 @@ Overlay(er) script owns:
   field names and placement
   editing/autosave behavior
   reset buttons
+  local-file selection behavior
   overlay ordering/deletion/duplication
   persistence
   compositor/server behavior
@@ -105,6 +107,8 @@ If the DLL is missing, the action can still compile and run far enough to displa
 
 ## Local files
 
+The URL / LOCAL FILE editor now has a folder button. It opens the native Windows/WPF file picker, accepts common HTML/image/video entry files plus an All files option, and writes the selected path into the URL field as an absolute `file:///...` URI. The normal 500 ms autosave then persists it just like a manually entered URL.
+
 A `file:///.../overlay.html` source receives an isolated local route based on its overlay ID. Relative files such as `css/style.css`, `js/app.js`, images, fonts, and media resolve under that overlay's directory without scanning unrelated directories or mixing files from another overlay with the same filename.
 
 Local files are served with a 64 KiB streaming buffer and `FileShare.ReadWrite` so development tools can update assets while OBS is using them.
@@ -123,20 +127,22 @@ A later compatibility mode can be added behind a per-overlay renderer option, bu
 4. `overlay-er.cs` should only need `Newtonsoft.Json.dll` as its project-specific editor reference.
 5. Paste the current `overlay-er.cs` into the Execute C# Code sub-action and compile it.
 6. Run the action and confirm the script-owned WPF window opens.
-7. Confirm the footer reports `Overlay(er) v2.1.0` and the loaded UI assembly version.
+7. Confirm the footer reports `Overlay(er) v2.2.0` and the loaded UI assembly version.
 8. Confirm existing `overlayer/listview.json` entries appear.
 9. Test Name/URL/Width/Height/X/Y editing and 500 ms autosave.
 10. Test the individual Width/Height/X/Y reset buttons and reset-all.
 11. Test duplicate, reorder, delete, the single per-row enable/disable toggle, copy URL, open source and pop-out compositor actions.
-12. Enable **Auto start**, restart/recompile the Overlay(er) runtime, and confirm the compositor comes online without pressing Start server.
-13. Disable **Auto start** and confirm a fresh runtime remains offline until Start server is pressed.
-14. Add one OBS Browser Source at `http://localhost:42069/`.
-15. Confirm slider movement previews live without writing every drag frame.
-16. Test remote overlays and a local HTML overlay with relative CSS/JS/image assets.
-17. Stop the server and verify the loaded OBS Browser Source clears rather than freezing stale output.
-18. Start the server again and verify the already-loaded Browser Source reconnects.
-19. Hide/reopen the management window and verify the server can remain owned by the script lifecycle.
-20. Shut down/recompile Streamer.bot and confirm `Dispose()` releases ports 42069/42070.
+12. Click the folder button, select a local HTML file, confirm the field becomes a `file:///...` URI, and confirm the row changes to LOCAL after autosave.
+13. Confirm a previously selected local file opens its containing directory as the starting location when browsing again.
+14. Enable **Auto start**, restart/recompile the Overlay(er) runtime, and confirm the compositor comes online without pressing Start server.
+15. Disable **Auto start** and confirm a fresh runtime remains offline until Start server is pressed.
+16. Add one OBS Browser Source at `http://localhost:42069/`.
+17. Confirm slider movement previews live without writing every drag frame.
+18. Test remote overlays and a local HTML overlay with relative CSS/JS/image assets.
+19. Stop the server and verify the loaded OBS Browser Source clears rather than freezing stale output.
+20. Start the server again and verify the already-loaded Browser Source reconnects.
+21. Hide/reopen the management window and verify the server can remain owned by the script lifecycle.
+22. Shut down/recompile Streamer.bot and confirm `Dispose()` releases ports 42069/42070.
 
 ## Not yet claimed complete
 
