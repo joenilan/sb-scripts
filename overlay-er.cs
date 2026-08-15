@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 
-// CRNTLY Overlay(er) v2.1.0
+// CRNTLY Overlay(er) v2.2.0
 // Streamer.bot editor reference required:
 //   Newtonsoft.Json.dll
 //
@@ -22,7 +22,7 @@ using Newtonsoft.Json;
 public static class OverlayErBuild
 {
     public const string ProductName = "Overlay(er)";
-    public const string Version = "2.1.0";
+    public const string Version = "2.2.0";
     public static string DisplayVersion { get { return ProductName + " v" + Version; } }
 }
 
@@ -337,14 +337,14 @@ public sealed class OverlayerScriptUi : IDisposable
   <shell:WindowChrome.WindowChrome>
     <shell:WindowChrome CaptionHeight=""0"" ResizeBorderThickness=""4"" CornerRadius=""3"" GlassFrameThickness=""0"" />
   </shell:WindowChrome.WindowChrome>
-  <Border Background=""{DynamicResource Crntly.Background}"" BorderBrush=""{DynamicResource Crntly.Border}""
+  <Border Background=""{DynamicResource Crntly.Background}"" BorderBrush=""{DynamicResource Crntly.Border}"
           BorderThickness=""1"" CornerRadius=""{DynamicResource Crntly.WindowRadius}"">
     <Grid>
       <Grid.RowDefinitions>
         <RowDefinition Height=""{DynamicResource Crntly.TitleBarHeight}"" /><RowDefinition Height=""Auto"" />
         <RowDefinition Height=""*"" /><RowDefinition Height=""16"" />
       </Grid.RowDefinitions>
-      <Border x:Name=""TitleBar"" Grid.Row=""0"" Background=""{DynamicResource Crntly.Surface}""
+      <Border x:Name=""TitleBar"" Grid.Row=""0"" Background=""{DynamicResource Crntly.Surface}"
               BorderBrush=""{DynamicResource Crntly.Border}"" BorderThickness=""0,0,0,1"" CornerRadius=""3,3,0,0"">
         <Grid Margin=""7,0,3,0"">
           <Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""Auto"" /><ColumnDefinition Width=""24"" /><ColumnDefinition Width=""24"" /></Grid.ColumnDefinitions>
@@ -426,9 +426,10 @@ public sealed class OverlayerScriptUi : IDisposable
                 <Grid.ColumnDefinitions><ColumnDefinition Width=""0.34*"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""0.66*"" /></Grid.ColumnDefinitions>
                 <StackPanel Grid.Column=""0""><TextBlock Text=""NAME"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" /><TextBox x:Name=""NameBox"" /></StackPanel>
                 <StackPanel Grid.Column=""2""><TextBlock Text=""URL / LOCAL FILE"" Style=""{StaticResource Crntly.Label}"" Margin=""0,0,0,2"" />
-                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
+                  <Grid><Grid.ColumnDefinitions><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""3"" /><ColumnDefinition Width=""22"" /><ColumnDefinition Width=""2"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
                     <TextBox x:Name=""UrlBox"" />
-                    <Button x:Name=""OpenSourceButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Open overlay source in browser""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z"" /></Button>
+                    <Button x:Name=""BrowseSourceButton"" Grid.Column=""2"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Browse for local overlay file""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M10,4H4C2.9,4 2,4.9 2,6V18C2,19.1 2.9,20 4,20H20C21.1,20 22,19.1 22,18V8C22,6.9 21.1,6 20,6H12L10,4Z"" /></Button>
+                    <Button x:Name=""OpenSourceButton"" Grid.Column=""4"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Open overlay source""><Path Style=""{StaticResource Crntly.IconPath}"" Data=""M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z"" /></Button>
                   </Grid>
                 </StackPanel>
               </Grid>
@@ -460,7 +461,7 @@ public sealed class OverlayerScriptUi : IDisposable
           </ScrollViewer>
         </Border>
       </Grid>
-      <Grid Grid.Row=""3"" Margin=""8,0""><TextBlock Text=""CRNTLY • livestreaming.tools"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" VerticalAlignment=""Center"" /><TextBlock x:Name=""VersionText"" Text=""Overlay(er) v2.1.0"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" HorizontalAlignment=""Right"" VerticalAlignment=""Center"" /></Grid>
+      <Grid Grid.Row=""3"" Margin=""8,0""><TextBlock Text=""CRNTLY • livestreaming.tools"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" VerticalAlignment=""Center"" /><TextBlock x:Name=""VersionText"" Text=""Overlay(er) v2.2.0"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" HorizontalAlignment=""Right"" VerticalAlignment=""Center"" /></Grid>
     </Grid>
   </Border>
 </Window>";
@@ -563,6 +564,7 @@ public sealed class OverlayerScriptUi : IDisposable
         Bind("TopBox", "TextChanged", "top-field");
         Bind("LeftSlider", "ValueChanged", "left-slider");
         Bind("TopSlider", "ValueChanged", "top-slider");
+        Bind("BrowseSourceButton", "Click", "browse-source");
         Bind("OpenSourceButton", "Click", "open-source");
         Bind("ResetWidthButton", "Click", "reset-width");
         Bind("ResetHeightButton", "Click", "reset-height");
@@ -618,6 +620,7 @@ public sealed class OverlayerScriptUi : IDisposable
                 case "auto-start-off": if (!_loadingEditor) SafeInvoke(AutoStartServerChanged, false); break;
                 case "copy-url": TrySetClipboard(_window.Get<string>("ServerUrlBox", "Text", "")); break;
                 case "open-preview": OpenExternal(_window.Get<string>("ServerUrlBox", "Text", ""), false); break;
+                case "browse-source": BrowseLocalFile(); break;
                 case "open-source": if (!OpenExternal(Text("UrlBox"), true)) SetEditorStatus("Check URL", "Crntly.Danger"); break;
                 case "add": AddOverlay(); break;
                 case "duplicate": DuplicateOverlay(); break;
@@ -958,7 +961,7 @@ public sealed class OverlayerScriptUi : IDisposable
 
     private void SetEditorEnabled(bool enabled)
     {
-        foreach (var name in new[] { "NameBox", "UrlBox", "WidthBox", "HeightBox", "LeftBox", "TopBox", "ResetLayoutButton", "ResetWidthButton", "ResetHeightButton", "ResetLeftButton", "ResetTopButton" })
+        foreach (var name in new[] { "NameBox", "UrlBox", "WidthBox", "HeightBox", "LeftBox", "TopBox", "BrowseSourceButton", "ResetLayoutButton", "ResetWidthButton", "ResetHeightButton", "ResetLeftButton", "ResetTopButton" })
             _window.SetProperty(name, "IsEnabled", enabled);
         _window.SetProperty("OpenSourceButton", "IsEnabled", enabled && CanOpen(Text("UrlBox")));
         _window.SetProperty("LeftSlider", "IsEnabled", enabled); _window.SetProperty("TopSlider", "IsEnabled", enabled);
@@ -985,6 +988,7 @@ public sealed class OverlayerScriptUi : IDisposable
         _window.SetProperty("MoveDownButton", "IsEnabled", has && index >= 0 && index < _items.Count - 1);
         _window.SetProperty("DeleteButton", "IsEnabled", has);
         _window.SetProperty("ResetLayoutButton", "IsEnabled", has);
+        _window.SetProperty("BrowseSourceButton", "IsEnabled", has);
         _window.SetProperty("OpenSourceButton", "IsEnabled", has && CanOpen(Text("UrlBox")));
     }
 
@@ -1008,6 +1012,68 @@ public sealed class OverlayerScriptUi : IDisposable
     private static void SafeInvoke(Action<bool> callback, bool value) { if (callback != null) callback(value); }
     private static void SafeInvoke(Action<OverlayRecord> callback, OverlayRecord item) { if (callback != null) callback(item); }
     private static bool CanOpen(string value) { Uri uri; return TryGetSupportedUri(value, out uri); }
+
+    private void BrowseLocalFile()
+    {
+        if (_editingItem == null)
+            return;
+
+        var dialogType = Type.GetType("Microsoft.Win32.OpenFileDialog, PresentationFramework", false);
+        if (dialogType == null)
+        {
+            SetEditorStatus("File picker unavailable", "Crntly.Danger");
+            return;
+        }
+
+        try
+        {
+            var dialog = Activator.CreateInstance(dialogType);
+            SetReflectedProperty(dialogType, dialog, "Title", "Select local overlay file");
+            SetReflectedProperty(dialogType, dialog, "Filter", "Web / media files|*.html;*.htm;*.svg;*.png;*.jpg;*.jpeg;*.gif;*.webp;*.mp4;*.webm|All files|*.*");
+            SetReflectedProperty(dialogType, dialog, "CheckFileExists", true);
+            SetReflectedProperty(dialogType, dialog, "Multiselect", false);
+            SetReflectedProperty(dialogType, dialog, "RestoreDirectory", true);
+
+            Uri current;
+            if (TryGetSupportedUri(Text("UrlBox"), out current) && current.IsFile)
+            {
+                var directory = Path.GetDirectoryName(current.LocalPath);
+                if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                    SetReflectedProperty(dialogType, dialog, "InitialDirectory", directory);
+            }
+
+            var show = dialogType.GetMethod("ShowDialog", Type.EmptyTypes);
+            var accepted = show == null ? null : show.Invoke(dialog, null);
+            if (!(accepted is bool) || !(bool)accepted)
+                return;
+
+            var fileNameProperty = dialogType.GetProperty("FileName", BindingFlags.Instance | BindingFlags.Public);
+            var fileName = fileNameProperty == null ? null : Convert.ToString(fileNameProperty.GetValue(dialog, null));
+            if (string.IsNullOrWhiteSpace(fileName) || !File.Exists(fileName))
+                return;
+
+            var fileUri = new Uri(Path.GetFullPath(fileName)).AbsoluteUri;
+            var previous = _loadingEditor;
+            _loadingEditor = true;
+            try { _window.SetProperty("UrlBox", "Text", fileUri); }
+            finally { _loadingEditor = previous; }
+
+            UpdateActionStates();
+            ScheduleAutosave();
+        }
+        catch (Exception ex)
+        {
+            _logError("Unable to browse for local overlay file: " + ex.Message);
+            SetEditorStatus("Could not browse", "Crntly.Danger");
+        }
+    }
+
+    private static void SetReflectedProperty(Type type, object target, string propertyName, object value)
+    {
+        var property = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+        if (property != null && property.CanWrite)
+            property.SetValue(target, value, null);
+    }
 
     private bool OpenExternal(string value, bool reportEditorError)
     {
