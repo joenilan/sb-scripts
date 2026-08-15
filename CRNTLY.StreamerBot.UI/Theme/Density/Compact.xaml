@@ -1,0 +1,25 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Geometry/density only. Swap this dictionary later for Comfortable without changing controls. -->
+  <sys:Double x:Key="Crntly.ControlHeight">28</sys:Double>
+  <sys:Double x:Key="Crntly.SmallControlHeight">24</sys:Double>
+  <sys:Double x:Key="Crntly.TitleBarHeight">42</sys:Double>
+  <sys:Double x:Key="Crntly.ScrollBarSize">7</sys:Double>
+  <sys:Double x:Key="Crntly.FontSize">10</sys:Double>
+  <sys:Double x:Key="Crntly.SmallFontSize">9</sys:Double>
+  <sys:Double x:Key="Crntly.TitleFontSize">14</sys:Double>
+
+  <Thickness x:Key="Crntly.WindowMargin">10</Thickness>
+  <Thickness x:Key="Crntly.CardPadding">10</Thickness>
+  <Thickness x:Key="Crntly.ControlPadding">8,4</Thickness>
+  <Thickness x:Key="Crntly.ButtonPadding">10,4</Thickness>
+  <Thickness x:Key="Crntly.CompactButtonPadding">7,3</Thickness>
+  <Thickness x:Key="Crntly.FieldGap">0,0,0,8</Thickness>
+  <Thickness x:Key="Crntly.SectionGap">0,0,0,10</Thickness>
+
+  <CornerRadius x:Key="Crntly.WindowRadius">8</CornerRadius>
+  <CornerRadius x:Key="Crntly.CardRadius">7</CornerRadius>
+  <CornerRadius x:Key="Crntly.ControlRadius">5</CornerRadius>
+</ResourceDictionary>
