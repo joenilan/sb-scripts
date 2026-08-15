@@ -10,6 +10,8 @@
     <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
     <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
     <Setter Property="TextOptions.TextRenderingMode" Value="ClearType" />
+    <Setter Property="UseLayoutRounding" Value="True" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
   </Style>
 
   <Style x:Key="Crntly.Card" TargetType="Border">
@@ -56,17 +58,21 @@
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
-              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.SurfaceHover}" />
-              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.BorderStrong}" />
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentMuted}" />
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
+              <Setter Property="Foreground" Value="{DynamicResource Crntly.AccentHover}" />
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
               <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
-              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.BorderStrong}" />
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentPressed}" />
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.AccentPressed}" />
+              <Setter Property="Foreground" Value="White" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Chrome" Property="Opacity" Value="0.42" />
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.34" />
+              <Setter Property="Cursor" Value="Arrow" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -102,12 +108,14 @@
             </Trigger>
             <Trigger Property="IsPressed" Value="True">
               <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentPressed}" />
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.AccentPressed}" />
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
               <Setter TargetName="Chrome" Property="BorderBrush" Value="White" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Chrome" Property="Opacity" Value="0.42" />
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.34" />
+              <Setter Property="Cursor" Value="Arrow" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -115,9 +123,50 @@
     </Setter>
   </Style>
 
-  <Style x:Key="Crntly.DangerButton" TargetType="Button" BasedOn="{StaticResource Crntly.Button}">
+  <Style x:Key="Crntly.DangerButton" TargetType="Button">
     <Setter Property="Foreground" Value="{DynamicResource Crntly.Danger}" />
     <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Crntly.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="{DynamicResource Crntly.ButtonPadding}" />
+    <Setter Property="MinHeight" Value="{DynamicResource Crntly.ControlHeight}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Chrome"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
+                  CornerRadius="{DynamicResource Crntly.ControlRadius}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.DangerMuted}" />
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Danger}" />
+              <Setter Property="Foreground" Value="{DynamicResource Crntly.DangerHover}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Danger}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.DangerPressed}" />
+              <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.DangerPressed}" />
+              <Setter Property="Foreground" Value="White" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.3" />
+              <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
   <Style x:Key="Crntly.TitleButton" TargetType="Button" BasedOn="{StaticResource Crntly.Button}">
@@ -137,7 +186,7 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="{DynamicResource Crntly.ControlPadding}" />
     <Setter Property="MinHeight" Value="{DynamicResource Crntly.ControlHeight}" />
-    <Setter Property="CaretBrush" Value="{DynamicResource Crntly.Text}" />
+    <Setter Property="CaretBrush" Value="{DynamicResource Crntly.AccentHover}" />
     <Setter Property="SelectionBrush" Value="{DynamicResource Crntly.Accent}" />
     <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -157,13 +206,15 @@
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
               <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.SurfaceHover}" />
             </Trigger>
             <Trigger Property="IsReadOnly" Value="True">
               <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.Background}" />
               <Setter Property="Foreground" Value="{DynamicResource Crntly.TextMuted}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Chrome" Property="Opacity" Value="0.45" />
+              <Setter TargetName="Chrome" Property="Opacity" Value="0.4" />
+              <Setter Property="Cursor" Value="Arrow" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -173,7 +224,7 @@
 
   <Style TargetType="TextBox" BasedOn="{StaticResource Crntly.TextBox}" />
 
-  <!-- Compact rectangular switch: modern without the pill-shaped mobile look. -->
+  <!-- Compact rectangular switch: desktop-oriented rather than pill-shaped. -->
   <Style x:Key="Crntly.Toggle" TargetType="CheckBox">
     <Setter Property="Foreground" Value="{DynamicResource Crntly.Text}" />
     <Setter Property="Cursor" Value="Hand" />
@@ -214,12 +265,24 @@
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.AccentHover}" />
             </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsChecked" Value="True" />
+                <Condition Property="IsMouseOver" Value="True" />
+              </MultiTrigger.Conditions>
+              <Setter TargetName="Track" Property="Background" Value="{DynamicResource Crntly.AccentHover}" />
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.AccentHover}" />
+            </MultiTrigger>
+            <Trigger Property="IsPressed" Value="True">
+              <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.AccentPressed}" />
+            </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
               <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-              <Setter TargetName="Track" Property="Opacity" Value="0.4" />
+              <Setter TargetName="Track" Property="Opacity" Value="0.36" />
               <Setter Property="Foreground" Value="{DynamicResource Crntly.TextSubtle}" />
+              <Setter Property="Cursor" Value="Arrow" />
             </Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
@@ -266,8 +329,12 @@
                               CornerRadius="1" />
                       <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                          <Setter TargetName="ThumbChrome" Property="Background" Value="White" />
-                          <Setter TargetName="ThumbChrome" Property="BorderThickness" Value="2" />
+                          <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.AccentHover}" />
+                          <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="{DynamicResource Crntly.AccentHover}" />
+                        </Trigger>
+                        <Trigger Property="IsDragging" Value="True">
+                          <Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" />
+                          <Setter TargetName="ThumbChrome" Property="BorderBrush" Value="White" />
                         </Trigger>
                       </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -303,7 +370,7 @@
               <ControlTemplate TargetType="Thumb">
                 <Border x:Name="ThumbChrome" Background="{DynamicResource Crntly.BorderStrong}" CornerRadius="1" />
                 <ControlTemplate.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.TextSubtle}" /></Trigger>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.AccentHover}" /></Trigger>
                   <Trigger Property="IsDragging" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" /></Trigger>
                 </ControlTemplate.Triggers>
               </ControlTemplate>
@@ -329,7 +396,7 @@
               <ControlTemplate TargetType="Thumb">
                 <Border x:Name="ThumbChrome" Background="{DynamicResource Crntly.BorderStrong}" CornerRadius="1" />
                 <ControlTemplate.Triggers>
-                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.TextSubtle}" /></Trigger>
+                  <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.AccentHover}" /></Trigger>
                   <Trigger Property="IsDragging" Value="True"><Setter TargetName="ThumbChrome" Property="Background" Value="{DynamicResource Crntly.Accent}" /></Trigger>
                 </ControlTemplate.Triggers>
               </ControlTemplate>
@@ -373,24 +440,44 @@
     <Setter Property="Template">
       <Setter.Value>
         <ControlTemplate TargetType="ListBoxItem">
-          <Border x:Name="Row"
-                  Background="{TemplateBinding Background}"
-                  BorderBrush="{DynamicResource Crntly.Border}"
-                  BorderThickness="1"
-                  CornerRadius="1"
-                  Padding="6,4">
-            <ContentPresenter />
-          </Border>
+          <Grid>
+            <Border x:Name="Row"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{DynamicResource Crntly.Border}"
+                    BorderThickness="1"
+                    CornerRadius="1"
+                    Padding="7,4,6,4">
+              <ContentPresenter />
+            </Border>
+            <Border x:Name="AccentBar"
+                    Width="2"
+                    Margin="0,3,0,3"
+                    HorizontalAlignment="Left"
+                    Background="Transparent"
+                    CornerRadius="1" />
+          </Grid>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Row" Property="Background" Value="{DynamicResource Crntly.SurfaceHover}" />
               <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Crntly.BorderStrong}" />
             </Trigger>
-            <Trigger Property="IsSelected" Value="True">
-              <Setter TargetName="Row" Property="Background" Value="{DynamicResource Crntly.AccentMuted}" />
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
               <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
             </Trigger>
-            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Row" Property="Opacity" Value="0.45" /></Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Row" Property="Background" Value="{DynamicResource Crntly.AccentMuted}" />
+              <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Crntly.BorderStrong}" />
+              <Setter TargetName="AccentBar" Property="Background" Value="{DynamicResource Crntly.Accent}" />
+            </Trigger>
+            <MultiTrigger>
+              <MultiTrigger.Conditions>
+                <Condition Property="IsSelected" Value="True" />
+                <Condition Property="IsMouseOver" Value="True" />
+              </MultiTrigger.Conditions>
+              <Setter TargetName="Row" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
+              <Setter TargetName="AccentBar" Property="Background" Value="{DynamicResource Crntly.AccentHover}" />
+            </MultiTrigger>
+            <Trigger Property="IsEnabled" Value="False"><Setter TargetName="Row" Property="Opacity" Value="0.4" /></Trigger>
           </ControlTemplate.Triggers>
         </ControlTemplate>
       </Setter.Value>
