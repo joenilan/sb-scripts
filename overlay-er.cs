@@ -10,7 +10,7 @@ using System.Text;
 using System.Threading;
 using Newtonsoft.Json;
 
-// CRNTLY Overlay(er) v2.0.0
+// CRNTLY Overlay(er) v2.1.0
 // Streamer.bot editor reference required:
 //   Newtonsoft.Json.dll
 //
@@ -22,7 +22,7 @@ using Newtonsoft.Json;
 public static class OverlayErBuild
 {
     public const string ProductName = "Overlay(er)";
-    public const string Version = "2.0.0";
+    public const string Version = "2.1.0";
     public static string DisplayVersion { get { return ProductName + " v" + Version; } }
 }
 
@@ -362,13 +362,14 @@ public sealed class OverlayerScriptUi : IDisposable
       </Border>
       <Border Grid.Row=""1"" Style=""{StaticResource Crntly.Card}"" Margin=""7,5,7,4"" Padding=""5"">
         <Grid>
-          <Grid.ColumnDefinitions><ColumnDefinition Width=""Auto"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""4"" /><ColumnDefinition Width=""22"" /><ColumnDefinition Width=""2"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
+          <Grid.ColumnDefinitions><ColumnDefinition Width=""Auto"" /><ColumnDefinition Width=""6"" /><ColumnDefinition Width=""Auto"" /><ColumnDefinition Width=""8"" /><ColumnDefinition Width=""*"" /><ColumnDefinition Width=""4"" /><ColumnDefinition Width=""22"" /><ColumnDefinition Width=""2"" /><ColumnDefinition Width=""22"" /></Grid.ColumnDefinitions>
           <Button x:Name=""ServerButton"" Grid.Column=""0"" Content=""Start server"" Style=""{StaticResource Crntly.PrimaryButton}"" MinWidth=""84"" />
-          <TextBox x:Name=""ServerUrlBox"" Grid.Column=""2"" IsReadOnly=""True"" Text=""http://localhost:42069/"" VerticalContentAlignment=""Center"" />
-          <Button x:Name=""CopyUrlButton"" Grid.Column=""4"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Copy compositor URL"">
+          <CheckBox x:Name=""AutoStartServerBox"" Grid.Column=""2"" Content=""Auto start"" VerticalAlignment=""Center"" ToolTip=""Start the compositor server automatically when Overlay(er) starts."" />
+          <TextBox x:Name=""ServerUrlBox"" Grid.Column=""4"" IsReadOnly=""True"" Text=""http://localhost:42069/"" VerticalContentAlignment=""Center"" />
+          <Button x:Name=""CopyUrlButton"" Grid.Column=""6"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Copy compositor URL"">
             <Path Style=""{StaticResource Crntly.IconPath}"" Data=""M19,21H8C6.9,21 6,20.1 6,19V8C6,6.9 6.9,6 8,6H19C20.1,6 21,6.9 21,8V19C21,20.1 20.1,21 19,21 M16,3H5C3.9,3 3,3.9 3,5V16H5V5H16V3Z"" />
           </Button>
-          <Button x:Name=""OpenPreviewButton"" Grid.Column=""6"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Open compositor preview in browser"">
+          <Button x:Name=""OpenPreviewButton"" Grid.Column=""8"" Style=""{StaticResource Crntly.IconButton}"" ToolTip=""Open compositor preview in browser"">
             <Path Style=""{StaticResource Crntly.IconPath}"" Data=""M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3H14 M19,19H5V5H12V3H5C3.9,3 3,3.9 3,5V19C3,20.1 3.9,21 5,21H19C20.1,21 21,20.1 21,19V12H19V19Z"" />
           </Button>
         </Grid>
@@ -459,7 +460,7 @@ public sealed class OverlayerScriptUi : IDisposable
           </ScrollViewer>
         </Border>
       </Grid>
-      <Grid Grid.Row=""3"" Margin=""8,0""><TextBlock Text=""CRNTLY • livestreaming.tools"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" VerticalAlignment=""Center"" /><TextBlock x:Name=""VersionText"" Text=""Overlay(er) v2.0.0"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" HorizontalAlignment=""Right"" VerticalAlignment=""Center"" /></Grid>
+      <Grid Grid.Row=""3"" Margin=""8,0""><TextBlock Text=""CRNTLY • livestreaming.tools"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" VerticalAlignment=""Center"" /><TextBlock x:Name=""VersionText"" Text=""Overlay(er) v2.1.0"" Foreground=""{DynamicResource Crntly.TextSubtle}"" FontSize=""7"" HorizontalAlignment=""Right"" VerticalAlignment=""Center"" /></Grid>
     </Grid>
   </Border>
 </Window>";
@@ -486,11 +487,12 @@ public sealed class OverlayerScriptUi : IDisposable
 
     public Action StartServerRequested { get; set; }
     public Action StopServerRequested { get; set; }
+    public Action<bool> AutoStartServerChanged { get; set; }
     public Action<OverlayRecord> OverlayChanged { get; set; }
     public Action<OverlayRecord> OverlayDeleted { get; set; }
     public Action<IList<OverlayRecord>> OverlayOrderChanged { get; set; }
 
-    public void Show(IList<OverlayRecord> items, bool serverRunning, string serverUrl)
+    public void Show(IList<OverlayRecord> items, bool serverRunning, string serverUrl, bool autoStartServer)
     {
         ThrowIfDisposed();
         _window.Show(WindowXaml);
@@ -501,6 +503,7 @@ public sealed class OverlayerScriptUi : IDisposable
         {
             SetItems(items);
             SetServerState(serverRunning, serverUrl);
+            _window.SetProperty("AutoStartServerBox", "IsChecked", autoStartServer);
         }
         finally
         {
@@ -541,6 +544,8 @@ public sealed class OverlayerScriptUi : IDisposable
         Bind("MinimizeButton", "Click", "minimize");
         Bind("CloseButton", "Click", "close");
         Bind("ServerButton", "Click", "server");
+        Bind("AutoStartServerBox", "Checked", "auto-start-on");
+        Bind("AutoStartServerBox", "Unchecked", "auto-start-off");
         Bind("CopyUrlButton", "Click", "copy-url");
         Bind("OpenPreviewButton", "Click", "open-preview");
         Bind("AddButton", "Click", "add");
@@ -609,6 +614,8 @@ public sealed class OverlayerScriptUi : IDisposable
                     if (string.Equals(_window.Get<string>("ServerButton", "Content", ""), "Stop server", StringComparison.OrdinalIgnoreCase)) SafeInvoke(StopServerRequested);
                     else SafeInvoke(StartServerRequested);
                     break;
+                case "auto-start-on": if (!_loadingEditor) SafeInvoke(AutoStartServerChanged, true); break;
+                case "auto-start-off": if (!_loadingEditor) SafeInvoke(AutoStartServerChanged, false); break;
                 case "copy-url": TrySetClipboard(_window.Get<string>("ServerUrlBox", "Text", "")); break;
                 case "open-preview": OpenExternal(_window.Get<string>("ServerUrlBox", "Text", ""), false); break;
                 case "open-source": if (!OpenExternal(Text("UrlBox"), true)) SetEditorStatus("Check URL", "Crntly.Danger"); break;
@@ -998,6 +1005,7 @@ public sealed class OverlayerScriptUi : IDisposable
     }
 
     private static void SafeInvoke(Action callback) { if (callback != null) callback(); }
+    private static void SafeInvoke(Action<bool> callback, bool value) { if (callback != null) callback(value); }
     private static void SafeInvoke(Action<OverlayRecord> callback, OverlayRecord item) { if (callback != null) callback(item); }
     private static bool CanOpen(string value) { Uri uri; return TryGetSupportedUri(value, out uri); }
 
@@ -1117,6 +1125,7 @@ public sealed class OverlayerRuntime : IDisposable
     private readonly OverlayerConfigStore _configStore;
     private readonly CompositeOverlayServer _server;
     private List<OverlayRecord> _items;
+    private bool _initialShow = true;
     private bool _disposed;
 
     public OverlayerRuntime(Action<string> log, Action<string> logError, CrntlyScriptWindowProxy window)
@@ -1130,12 +1139,21 @@ public sealed class OverlayerRuntime : IDisposable
         _ui = new OverlayerScriptUi(window, _logError);
         _ui.StartServerRequested = OnStartServerRequested;
         _ui.StopServerRequested = OnStopServerRequested;
+        _ui.AutoStartServerChanged = OnAutoStartServerChanged;
         _ui.OverlayChanged = OnOverlayChanged;
         _ui.OverlayDeleted = OnOverlayDeleted;
         _ui.OverlayOrderChanged = OnOverlayOrderChanged;
     }
 
-    public void Show() { ThrowIfDisposed(); _ui.Show(Snapshot(), _server.IsRunning, _server.Url); }
+    public void Show()
+    {
+        ThrowIfDisposed();
+        var shouldAutoStart = _initialShow && _configStore.AutoStartServer && !_server.IsRunning;
+        _initialShow = false;
+        _ui.Show(Snapshot(), _server.IsRunning, _server.Url, _configStore.AutoStartServer);
+        if (shouldAutoStart)
+            OnStartServerRequested();
+    }
 
     private void OnStartServerRequested()
     {
@@ -1147,6 +1165,22 @@ public sealed class OverlayerRuntime : IDisposable
     }
 
     private void OnStopServerRequested() { _server.Stop(); _ui.SetServerState(false, _server.Url); _log("Server stopped and compositor output cleared."); }
+
+    private void OnAutoStartServerChanged(bool enabled)
+    {
+        lock (_gate)
+        {
+            try
+            {
+                _configStore.SetAutoStartServer(enabled, _items);
+                _log("Auto start server " + (enabled ? "enabled." : "disabled."));
+            }
+            catch (Exception ex)
+            {
+                _logError("Unable to save auto start server preference: " + ex.Message);
+            }
+        }
+    }
 
     private void OnOverlayChanged(OverlayRecord changed)
     {
@@ -1208,7 +1242,7 @@ public sealed class OverlayerRuntime : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        _ui.StartServerRequested = null; _ui.StopServerRequested = null; _ui.OverlayChanged = null; _ui.OverlayDeleted = null; _ui.OverlayOrderChanged = null;
+        _ui.StartServerRequested = null; _ui.StopServerRequested = null; _ui.AutoStartServerChanged = null; _ui.OverlayChanged = null; _ui.OverlayDeleted = null; _ui.OverlayOrderChanged = null;
         _server.Dispose(); _ui.Dispose();
     }
 }
@@ -1242,7 +1276,9 @@ public sealed class OverlayRecord
 public sealed class OverlayerConfigStore
 {
     private readonly string _path;
+    private bool _autoStartServer;
     public OverlayerConfigStore() { var folder = Path.Combine(Environment.CurrentDirectory, "overlayer"); _path = Path.Combine(folder, "listview.json"); }
+    public bool AutoStartServer { get { return _autoStartServer; } }
 
     public List<OverlayRecord> Load(Action<string> logError)
     {
@@ -1253,6 +1289,7 @@ public sealed class OverlayerConfigStore
             if (!File.Exists(_path)) { File.WriteAllText(_path, "{}", Encoding.UTF8); return new List<OverlayRecord>(); }
             var json = File.ReadAllText(_path, Encoding.UTF8); if (string.IsNullOrWhiteSpace(json)) return new List<OverlayRecord>();
             var data = JsonConvert.DeserializeObject<LegacyListViewData>(json) ?? new LegacyListViewData();
+            _autoStartServer = data.AutoStartServer;
             Append(result, data.Enabled, true, 0); Append(result, data.Disabled, false, result.Count);
             return result.OrderBy(x => x.Order).ThenBy(x => x.FallbackOrder).Select(x => x.Item).ToList();
         }
@@ -1262,7 +1299,7 @@ public sealed class OverlayerConfigStore
     public void Save(IList<OverlayRecord> items)
     {
         var directory = Path.GetDirectoryName(_path); if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
-        var data = new LegacyListViewData { Enabled = new List<Dictionary<string, string>>(), Disabled = new List<Dictionary<string, string>>() };
+        var data = new LegacyListViewData { AutoStartServer = _autoStartServer, Enabled = new List<Dictionary<string, string>>(), Disabled = new List<Dictionary<string, string>>() };
         for (var i = 0; i < items.Count; i++)
         {
             var item = items[i];
@@ -1270,6 +1307,12 @@ public sealed class OverlayerConfigStore
             if (item.Enabled) data.Enabled.Add(row); else data.Disabled.Add(row);
         }
         File.WriteAllText(_path, JsonConvert.SerializeObject(data, Formatting.Indented), Encoding.UTF8);
+    }
+
+    public void SetAutoStartServer(bool enabled, IList<OverlayRecord> items)
+    {
+        _autoStartServer = enabled;
+        Save(items ?? new List<OverlayRecord>());
     }
 
     private static void Append(List<OrderedOverlay> output, List<Dictionary<string, string>> rows, bool enabled, int fallbackOffset)
@@ -1284,7 +1327,7 @@ public sealed class OverlayerConfigStore
 
     private static string Get(Dictionary<string, string> row, string key, string fallback) { string value; return row.TryGetValue(key, out value) && !string.IsNullOrWhiteSpace(value) ? value : fallback; }
     private sealed class OrderedOverlay { public int Order { get; set; } public int FallbackOrder { get; set; } public OverlayRecord Item { get; set; } }
-    public sealed class LegacyListViewData { public List<Dictionary<string, string>> Enabled { get; set; } public List<Dictionary<string, string>> Disabled { get; set; } }
+    public sealed class LegacyListViewData { public bool AutoStartServer { get; set; } public List<Dictionary<string, string>> Enabled { get; set; } public List<Dictionary<string, string>> Disabled { get; set; } }
 }
 
 public sealed class CompositeOverlayServer : IDisposable
