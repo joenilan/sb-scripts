@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -180,8 +181,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
             UrlBox.Text = item.Url;
             WidthBox.Text = item.Width;
             HeightBox.Text = item.Height;
-            LeftBox.Text = item.Left;
-            TopBox.Text = item.Top;
+            LeftBox.Text = DisplayPosition(item.Left);
+            TopBox.Text = DisplayPosition(item.Top);
             EnabledBox.IsChecked = item.Enabled;
         }
 
@@ -218,10 +219,15 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 return;
             }
 
-            if (!IsCssLength(WidthBox.Text) || !IsCssLength(HeightBox.Text) ||
-                !IsCssLength(LeftBox.Text) || !IsCssLength(TopBox.Text))
+            if (!IsCssLength(WidthBox.Text) || !IsCssLength(HeightBox.Text))
             {
-                ShowValidation("Width, height, left, and top must use px, %, vw, or vh (or 0).");
+                ShowValidation("Width and height must use px, %, vw, or vh (or 0).");
+                return;
+            }
+
+            if (!IsPosition(LeftBox.Text) || !IsPosition(TopBox.Text))
+            {
+                ShowValidation("Left (x) and top (y) are pixels by default. Enter a number such as 50 or -20. Explicit px, %, vw, or vh values are also supported.");
                 return;
             }
 
@@ -229,12 +235,16 @@ namespace Crntly.StreamerBot.UI.Overlayer
             item.Url = UrlBox.Text.Trim();
             item.Width = NormalizeCssLength(WidthBox.Text, "100%");
             item.Height = NormalizeCssLength(HeightBox.Text, "100%");
-            item.Left = NormalizeCssLength(LeftBox.Text, "0px");
-            item.Top = NormalizeCssLength(TopBox.Text, "0px");
+            item.Left = NormalizePosition(LeftBox.Text, "0px");
+            item.Top = NormalizePosition(TopBox.Text, "0px");
             item.Enabled = EnabledBox.IsChecked == true;
 
             OverlayChanged?.Invoke(this, new OverlayItemEventArgs(item.Clone()));
             OverlayList.Items.Refresh();
+
+            // Keep the editor clean: positions are shown as bare pixel values when possible.
+            LeftBox.Text = DisplayPosition(item.Left);
+            TopBox.Text = DisplayPosition(item.Top);
         }
 
         private void RaiseOrderChanged()
@@ -255,11 +265,53 @@ namespace Crntly.StreamerBot.UI.Overlayer
             return value.EndsWith("px") || value.EndsWith("%") || value.EndsWith("vw") || value.EndsWith("vh");
         }
 
+        private static bool IsPosition(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return true;
+
+            var trimmed = value.Trim();
+            double numeric;
+            if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out numeric))
+                return true;
+
+            return IsCssLength(trimmed);
+        }
+
         private static string NormalizeCssLength(string value, string fallback)
         {
             if (string.IsNullOrWhiteSpace(value))
                 return fallback;
             return value.Trim().ToLowerInvariant() == "0" ? "0px" : value.Trim().ToLowerInvariant();
+        }
+
+        private static string NormalizePosition(string value, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return fallback;
+
+            var trimmed = value.Trim().ToLowerInvariant();
+            double numeric;
+            if (double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out numeric))
+                return numeric.ToString("0.########", CultureInfo.InvariantCulture) + "px";
+
+            return NormalizeCssLength(trimmed, fallback);
+        }
+
+        private static string DisplayPosition(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return "0";
+
+            var trimmed = value.Trim();
+            if (!trimmed.EndsWith("px", StringComparison.OrdinalIgnoreCase))
+                return trimmed;
+
+            var numericPart = trimmed.Substring(0, trimmed.Length - 2).Trim();
+            double numeric;
+            return double.TryParse(numericPart, NumberStyles.Float, CultureInfo.InvariantCulture, out numeric)
+                ? numeric.ToString("0.########", CultureInfo.InvariantCulture)
+                : trimmed;
         }
 
         private void ShowValidation(string message)
@@ -273,8 +325,8 @@ namespace Crntly.StreamerBot.UI.Overlayer
             UrlBox.Text = string.Empty;
             WidthBox.Text = "100%";
             HeightBox.Text = "100%";
-            LeftBox.Text = "0px";
-            TopBox.Text = "0px";
+            LeftBox.Text = "0";
+            TopBox.Text = "0";
             EnabledBox.IsChecked = true;
         }
 
