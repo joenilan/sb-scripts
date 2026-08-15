@@ -279,14 +279,73 @@ namespace Crntly.StreamerBot.UI.Overlayer
                 _loadingEditor = false;
             }
 
+            PreviewLayoutFromEditor();
+            ScheduleAutosave();
+        }
+
+        private void ResetWidth_Click(object sender, RoutedEventArgs e)
+        {
+            ResetLayoutField(WidthBox, "100%", null);
+        }
+
+        private void ResetHeight_Click(object sender, RoutedEventArgs e)
+        {
+            ResetLayoutField(HeightBox, "100%", null);
+        }
+
+        private void ResetLeft_Click(object sender, RoutedEventArgs e)
+        {
+            ResetLayoutField(LeftBox, "0", LeftSlider);
+        }
+
+        private void ResetTop_Click(object sender, RoutedEventArgs e)
+        {
+            ResetLayoutField(TopBox, "0", TopSlider);
+        }
+
+        private void ResetLayoutField(TextBox textBox, string defaultValue, Slider slider)
+        {
+            if (_editingItem == null || textBox == null)
+                return;
+
+            _saveDebounceTimer.Stop();
+            var previous = _loadingEditor;
+            _loadingEditor = true;
+            try
+            {
+                textBox.Text = defaultValue;
+                if (slider != null)
+                    SyncPositionSlider(textBox, slider);
+            }
+            finally
+            {
+                _loadingEditor = previous;
+            }
+
+            PreviewLayoutFromEditor();
+            ScheduleAutosave();
+        }
+
+        private void PreviewLayoutFromEditor()
+        {
+            var item = _editingItem;
+            if (item == null)
+                return;
+
             var preview = item.Clone();
-            preview.Width = "100%";
-            preview.Height = "100%";
-            preview.Left = "0px";
-            preview.Top = "0px";
+            string normalized;
+
+            if (TryNormalizeCssLength(WidthBox.Text, preview.Width, false, out normalized))
+                preview.Width = normalized;
+            if (TryNormalizeCssLength(HeightBox.Text, preview.Height, false, out normalized))
+                preview.Height = normalized;
+            if (TryNormalizePosition(LeftBox.Text, preview.Left, out normalized))
+                preview.Left = normalized;
+            if (TryNormalizePosition(TopBox.Text, preview.Top, out normalized))
+                preview.Top = normalized;
+
             preview.IsPreview = true;
             OverlayChanged?.Invoke(this, new OverlayItemEventArgs(preview));
-            ScheduleAutosave();
         }
 
         private void OverlayList_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -533,7 +592,9 @@ namespace Crntly.StreamerBot.UI.Overlayer
         private void UpdateActionStates()
         {
             if (DuplicateButton == null || MoveUpButton == null || MoveDownButton == null ||
-                DeleteButton == null || ResetLayoutButton == null || OpenSourceButton == null)
+                DeleteButton == null || ResetLayoutButton == null || OpenSourceButton == null ||
+                ResetWidthButton == null || ResetHeightButton == null ||
+                ResetLeftButton == null || ResetTopButton == null)
                 return;
 
             var item = OverlayList == null ? null : OverlayList.SelectedItem as OverlayItem;
@@ -550,6 +611,10 @@ namespace Crntly.StreamerBot.UI.Overlayer
             MoveDownButton.IsEnabled = hasSelection && index >= 0 && index < Items.Count - 1;
             DeleteButton.IsEnabled = hasSelection;
             ResetLayoutButton.IsEnabled = hasSelection;
+            ResetWidthButton.IsEnabled = hasSelection;
+            ResetHeightButton.IsEnabled = hasSelection;
+            ResetLeftButton.IsEnabled = hasSelection;
+            ResetTopButton.IsEnabled = hasSelection;
             OpenSourceButton.IsEnabled = canOpenSource;
         }
 
@@ -750,6 +815,10 @@ namespace Crntly.StreamerBot.UI.Overlayer
             TopBox.IsEnabled = enabled;
             EnabledBox.IsEnabled = enabled;
             ResetLayoutButton.IsEnabled = enabled;
+            ResetWidthButton.IsEnabled = enabled;
+            ResetHeightButton.IsEnabled = enabled;
+            ResetLeftButton.IsEnabled = enabled;
+            ResetTopButton.IsEnabled = enabled;
             OpenSourceButton.IsEnabled = enabled && TryGetSupportedUri(UrlBox.Text, out _);
 
             if (!enabled)
