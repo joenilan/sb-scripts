@@ -13,7 +13,14 @@ C# scripts and reusable UI infrastructure for [Streamer.bot](https://streamer.bo
 
 [`CRNTLY.StreamerBot.UI`](CRNTLY.StreamerBot.UI/) is the reusable WPF runtime/component library for CRNTLY Streamer.bot tools. It deliberately does not depend on Streamer.bot types and contains no **Overlay(er)**-specific window. Scripts keep ownership of their layout, `CPH`, platform/OBS integration, persistence and runtime behavior.
 
-The shared UI runtime is versioned independently from individual tools. The current runtime is **v1.0.1**; Overlay(er) v2.2.1 displays both its own version and the loaded UI assembly version in the window footer so stale script/DLL combinations are easy to spot. UI v1.0.1 also contains the exact native WPF `ERROR_NOT_ENOUGH_QUOTA` / `HwndTarget` dispatcher failure so a transient CRNTLY window/render-target error cannot become a fatal Streamer.bot thread exception.
+The shared UI runtime is versioned independently from individual tools. The current runtime is **v1.0.2**; Overlay(er) v2.2.1 displays both its own version and the loaded UI assembly version in the window footer so stale script/DLL combinations are easy to spot. The shared runtime also contains the exact native WPF `ERROR_NOT_ENOUGH_QUOTA` / `HwndTarget` dispatcher failure so a transient CRNTLY window/render-target error cannot become a fatal Streamer.bot thread exception.
+
+Download the current compiled runtime from the latest GitHub release:
+
+- [CRNTLY.StreamerBot.UI.dll](https://github.com/joenilan/sb-scripts/releases/latest/download/CRNTLY.StreamerBot.UI.dll)
+- [Release notes and previous versions](https://github.com/joenilan/sb-scripts/releases)
+
+Place the DLL in `<Streamer.bot>\dlls\`, restart Streamer.bot, then run any CRNTLY script that lists it as a runtime dependency.
 
 Build on Windows:
 
