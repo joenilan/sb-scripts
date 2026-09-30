@@ -20,10 +20,24 @@ When adding a current script:
 1. Add its source at the repository root and give it an explicit version.
 2. Add a complete guide under docs, based on the template. Check every instruction against the source and the actual Streamer.bot action shape.
 3. Add the script and guide to this README, including current version and editor/runtime dependencies.
-4. If it should appear in Zombie.Digital’s script library, check the site’s script catalog and add or update its release, download, and setup links as needed.
+4. If it should appear in Zombie.Digital’s script library, follow the automatic listing rules below. Normal scripts need no per-script site code change.
 5. If an existing script is retired, move it to deprecated and identify its replacement there. Do not list it as an installable current script.
 
 Keep the guide current whenever configuration, triggers, references, runtime dependencies, storage, ports, or the user workflow changes.
+
+### Automatic Zombie.Digital listing
+
+Zombie.Digital discovers root-level .cs files in this repository from GitHub and creates detail pages dynamically. For a standard script, adding the source and the matching README row is enough; no manual site entry or site rebuild is required.
+
+The site reads the script description from the last README table column and the full setup-guide link from the third column. Use this table shape:
+
+| Script | Version | Setup guide | Summary |
+| --- | --- | --- | --- |
+| [Friendly name](script-file.cs) | 1.0.0 | [Setup guide](docs/SCRIPT_SETUP.md) | Short description shown in the library. |
+
+The source header supplies the title, version, editor references, and runtime dependencies. Keep those fields current. The site refreshes repository metadata on a five-minute revalidation window, so new entries may take a few minutes to appear after pushing to main.
+
+Only edit Zombie.Digital’s lib/scripts/data.ts when a script needs custom highlights, page copy, setup steps, a pinned source URL, or inclusion in the API-outage fallback list. That requires the normal site deployment.
 
 ## CRNTLY Streamer.bot UI
 
