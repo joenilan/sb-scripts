@@ -8,7 +8,7 @@ C# scripts and reusable UI infrastructure for [Streamer.bot](https://streamer.bo
 | --- | --- | --- |
 | [`overlayer.cs`](overlayer.cs) | v1.0.0 / legacy baseline | Original **Overlay(er)**: combines multiple URLs into one OBS Browser Source with a WinForms control panel. |
 | [`overlay-er.cs`](overlay-er.cs) | **v2.2.1 / current** | Current **Overlay(er)** release: script-owned WPF layout/behavior, shared CRNTLY UI runtime, live compositor state, persisted server auto-start, local-file browser, cleaner local-file routing, streaming I/O, dynamic DLL loading, autosave, live position preview, and Streamer.bot lifecycle cleanup. |
-| [`mroperator.cs`](mroperator.cs) | **v3.1.0 / redesigned** | Compact call desk with optional Call In reward and Phone/Hangup emote controls, one-action Twitch event routing, speech controls, and optional word filtering. |
+| [`mroperator.cs`](mroperator.cs) | **v3.2.0 / redesigned** | Compact call desk with configurable Phone emote, Call In reward, or both; one-action Twitch event routing; caller speech controls; and optional word filtering. |
 
 ## CRNTLY Streamer.bot UI
 
@@ -65,13 +65,19 @@ The bootstrap, clipboard, confirmation and file-picker helpers avoid adding proj
 
 See [`docs/OVERLAY_ER.md`](docs/OVERLAY_ER.md) for architecture and the current test checklist.
 
-## Mr. Operator v3.1.0
+## Mr. Operator v3.2.0
 
 `mroperator.cs` replaces the legacy WinForms panel with a script-owned WPF call desk and dynamically loads `CrntlyScriptWindowBridge` from `CRNTLY.StreamerBot.UI.dll`. Mr. Operator owns its product layout, caller-line states, and behavior; CRNTLY supplies the shared palette, reusable control templates, icons, scrollbars, tooltips, WPF host, and script bridge. The voice picker uses CRNTLY's shared ComboBox style, added in runtime v1.1.0. The nine-line deck gives each caller one direct action tile, separates waiting and live states, and keeps the connected caller and call timer in a single on-air panel. Its footer shows the script and shared UI versions.
 
-The **Call In** Twitch Channel Point reward is optional. Viewers can join by redeeming it, sending the **Phone** emote, or using both. The script accepts the Phone emote when it is the entire chat message. The active caller can send **Hangup** to end their call; a queued caller can send it to leave the queue. Other viewers cannot end someone else's active call.
+Set `MrOperatorBuild.CallEntryMode` near the top of the source to choose how viewers call:
 
-Put the Twitch **Chat Message** trigger and, when using Channel Points, the **Reward Redemption** trigger on one Streamer.bot Action. Add one **Execute C# Code** sub-action containing the full script. `Execute()` routes both event types; no separate Execute C# Method actions are needed. Create a reward named **Call In** if you want the reward option. Without that reward, Phone and Hangup continue to work. Run the action manually once to open the call desk. Click a waiting caller to connect them, or click the active line to end the call. Waiting callers move forward in queue order; the next caller is not connected automatically.
+- `MrOperatorCallEntryMode.PhoneEmote` — accept the **Phone** emote as a standalone chat message.
+- `MrOperatorCallEntryMode.CallInReward` — accept the Twitch Channel Point reward named **Call In**.
+- `MrOperatorCallEntryMode.Both` — accept either method (default).
+
+The active caller can send **Hangup** to end their call; a queued caller can send it to leave the queue. Other viewers cannot end someone else's active call.
+
+Put the Twitch **Chat Message** trigger on one Streamer.bot Action in every mode; it handles emotes, Hangup, and reading active caller messages. Add a **Reward Redemption** trigger to the same action only for `CallInReward` or `Both`. Add one **Execute C# Code** sub-action containing the full script. `Execute()` routes both event types; no separate Execute C# Method actions are needed. Run the action manually once to open the call desk. Click a waiting caller to connect them, or click the active line to end the call. Waiting callers move forward in queue order; the next caller is not connected automatically.
 
 See [`docs/MR_OPERATOR_SETUP.md`](docs/MR_OPERATOR_SETUP.md) for the complete Streamer.bot setup and test sequence.
 

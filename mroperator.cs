@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-// Mr. Operator v3.1.0
+// Mr. Operator v3.2.0
 // Streamer.bot editor reference required:
 //   System.Speech.dll
 //
@@ -21,10 +21,28 @@ using System.Threading.Tasks;
 public static class MrOperatorBuild
 {
     public const string ProductName = "Mr. Operator";
-    public const string Version = "3.1.0";
+    public const string Version = "3.2.0";
     public const string RewardName = "Call In";
     public const string PhoneEmoteName = "Phone";
     public const string HangUpEmoteName = "Hangup";
+    public static MrOperatorCallEntryMode CallEntryMode = MrOperatorCallEntryMode.Both;
+
+    public static bool UsesPhoneEmoteCalls
+    {
+        get { return CallEntryMode == MrOperatorCallEntryMode.PhoneEmote || CallEntryMode == MrOperatorCallEntryMode.Both; }
+    }
+
+    public static bool UsesCallInReward
+    {
+        get { return CallEntryMode == MrOperatorCallEntryMode.CallInReward || CallEntryMode == MrOperatorCallEntryMode.Both; }
+    }
+}
+
+public enum MrOperatorCallEntryMode
+{
+    PhoneEmote,
+    CallInReward,
+    Both
 }
 
 public enum MrOperatorChatCommand
@@ -85,17 +103,34 @@ public class CPHInline
             Action<string> logError = message => CPH.LogError("[CRNTLY " + MrOperatorBuild.ProductName + "] " + message);
 
             string rewardId = null;
-            try
+            if (MrOperatorBuild.UsesCallInReward)
             {
-                rewardId = FindCallInRewardId();
-            }
-            catch (Exception ex)
-            {
-                logError("Could not check for the optional Call In reward; Phone emote calls remain available: " + ex);
+                try
+                {
+                    rewardId = FindCallInRewardId();
+                }
+                catch (Exception ex)
+                {
+                    logError("Could not check for the optional Call In reward: " + ex);
+                }
             }
 
-            if (string.IsNullOrEmpty(rewardId))
-                log("No Call In reward was found. The Phone and Hangup chat emotes will still work.");
+            if (!MrOperatorBuild.UsesPhoneEmoteCalls && !MrOperatorBuild.UsesCallInReward)
+            {
+                CPH.SendMessage("Mr. Operator has no call method selected. Set MrOperatorBuild.CallEntryMode to PhoneEmote, CallInReward, or Both.", false);
+                return false;
+            }
+
+            if (MrOperatorBuild.UsesCallInReward && string.IsNullOrEmpty(rewardId) && !MrOperatorBuild.UsesPhoneEmoteCalls)
+            {
+                CPH.SendMessage("Mr. Operator needs a Twitch Channel Point reward named '" + MrOperatorBuild.RewardName + "' for CallInReward mode.", false);
+                return false;
+            }
+
+            if (MrOperatorBuild.UsesCallInReward && string.IsNullOrEmpty(rewardId))
+                log("No Call In reward was found. Phone emote calls remain available in Both mode.");
+            else if (!MrOperatorBuild.UsesCallInReward)
+                log("Call In reward support is disabled. Phone emote calls are enabled.");
 
             MrOperatorScriptWindowProxy window;
             if (!MrOperatorDependencyBootstrap.TryCreateScriptWindow(log, logError, out window))
@@ -111,7 +146,7 @@ public class CPHInline
                 logError);
 
             _runtime.Start();
-            CPH.SendMessage("Mr. Operator is ready. Open lines, then send the Phone emote to request a call.", false);
+            CPH.SendMessage("Mr. Operator is ready. Open lines to accept callers using the configured call method.", false);
             return true;
         }
         catch (Exception ex)
@@ -791,9 +826,30 @@ public sealed class MrOperatorRuntime : IDisposable
 
     private string JoinInstructionText()
     {
-        return string.IsNullOrWhiteSpace(_rewardId)
-            ? "Send the Phone emote by itself in chat to join."
-            : "Send the Phone emote by itself or redeem Call In to join.";
+        var phoneEnabled = MrOperatorBuild.UsesPhoneEmoteCalls;
+        var rewardAvailable = MrOperatorBuild.UsesCallInReward && !string.IsNullOrWhiteSpace(_rewardId);
+
+        if (phoneEnabled && rewardAvailable)
+            return "Send the Phone emote by itself or redeem Call In to join.";
+        if (phoneEnabled)
+            return "Send the Phone emote by itself in chat to join.";
+        if (rewardAvailable)
+            return "Redeem Call In to join.";
+        return "No call method is available.";
+    }
+
+    private string CompactJoinInstructionText()
+    {
+        var phoneEnabled = MrOperatorBuild.UsesPhoneEmoteCalls;
+        var rewardAvailable = MrOperatorBuild.UsesCallInReward && !string.IsNullOrWhiteSpace(_rewardId);
+
+        if (phoneEnabled && rewardAvailable)
+            return "Send Phone or redeem Call In";
+        if (phoneEnabled)
+            return "Send Phone emote to join";
+        if (rewardAvailable)
+            return "Redeem Call In to join";
+        return "No call method configured";
     }
 
     private void RequestRewardSync(bool desiredState, long version, bool announce)
@@ -884,7 +940,8 @@ public sealed class MrOperatorRuntime : IDisposable
 
     public bool HandleRewardRedemption(string userName, string rewardName)
     {
-        if (string.IsNullOrWhiteSpace(userName) ||
+        if (!MrOperatorBuild.UsesCallInReward ||
+            string.IsNullOrWhiteSpace(userName) ||
             !string.Equals(rewardName, MrOperatorBuild.RewardName, StringComparison.OrdinalIgnoreCase))
             return false;
 
@@ -955,7 +1012,7 @@ public sealed class MrOperatorRuntime : IDisposable
 
         var command = MrOperatorChatCommandParser.Parse(message);
         if (command == MrOperatorChatCommand.RequestCall)
-            return JoinCallQueue(userName);
+            return MrOperatorBuild.UsesPhoneEmoteCalls && JoinCallQueue(userName);
         if (command == MrOperatorChatCommand.HangUp)
             return HandleHangUpEmote(userName);
 
@@ -1442,9 +1499,7 @@ public sealed class MrOperatorRuntime : IDisposable
             CallerName = linesOpen ? "Ready for callers" : "Line standing by",
             Initials = string.Empty,
             StateLabel = linesOpen ? "READY" : "STANDBY",
-            Subtitle = linesOpen
-                ? (string.IsNullOrWhiteSpace(_rewardId) ? "Send Phone emote to join" : "Send Phone or redeem Call In")
-                : "Open lines to accept callers",
+            Subtitle = linesOpen ? CompactJoinInstructionText() : "Open lines to accept callers",
             IsActive = false,
             IsWaiting = false,
             IsActionEnabled = false,
