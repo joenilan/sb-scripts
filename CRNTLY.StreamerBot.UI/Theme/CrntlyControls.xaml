@@ -54,7 +54,9 @@
                   BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="{DynamicResource Crntly.ControlRadius}"
                   Padding="{TemplateBinding Padding}">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              RecognizesAccessKey="True" />
           </Border>
           <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
@@ -268,6 +270,152 @@
   </Style>
 
   <Style TargetType="TextBox" BasedOn="{StaticResource Crntly.TextBox}" />
+
+  <Style x:Key="Crntly.ComboBoxItem" TargetType="ComboBoxItem">
+    <Setter Property="Foreground" Value="{DynamicResource Crntly.Text}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Padding" Value="{DynamicResource Crntly.ControlPadding}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBoxItem">
+          <Border x:Name="Chrome"
+                  Background="{TemplateBinding Background}"
+                  Padding="{TemplateBinding Padding}">
+            <ContentPresenter />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.SurfaceHover}" />
+            </Trigger>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.AccentMuted}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.4" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="Crntly.ComboBox" TargetType="ComboBox">
+    <Setter Property="Foreground" Value="{DynamicResource Crntly.Text}" />
+    <Setter Property="Background" Value="{DynamicResource Crntly.SurfaceRaised}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Crntly.Border}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="{DynamicResource Crntly.ControlPadding}" />
+    <Setter Property="MinHeight" Value="{DynamicResource Crntly.ControlHeight}" />
+    <Setter Property="FontSize" Value="{DynamicResource Crntly.FontSize}" />
+    <Setter Property="ItemContainerStyle" Value="{StaticResource Crntly.ComboBoxItem}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="SnapsToDevicePixels" Value="True" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ComboBox">
+          <Grid SnapsToDevicePixels="True">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="24" />
+            </Grid.ColumnDefinitions>
+            <ToggleButton x:Name="DropDownToggle"
+                          Grid.ColumnSpan="2"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                          Focusable="False"
+                          ClickMode="Press">
+              <ToggleButton.Template>
+                <ControlTemplate TargetType="ToggleButton">
+                  <Border x:Name="Chrome"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{DynamicResource Crntly.ControlRadius}" />
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
+                    </Trigger>
+                    <Trigger Property="IsKeyboardFocused" Value="True">
+                      <Setter TargetName="Chrome" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                      <Setter TargetName="Chrome" Property="Background" Value="{DynamicResource Crntly.SurfaceHover}" />
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </ToggleButton.Template>
+            </ToggleButton>
+            <ContentPresenter x:Name="ContentSite"
+                              Grid.Column="0"
+                              IsHitTestVisible="False"
+                              Content="{TemplateBinding SelectionBoxItem}"
+                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                              Margin="{TemplateBinding Padding}"
+                              VerticalAlignment="Center"
+                              TextElement.Foreground="{TemplateBinding Foreground}" />
+            <Path Grid.Column="1"
+                  Data="M5,7 L9,11 L13,7"
+                  Stroke="{DynamicResource Crntly.TextMuted}"
+                  StrokeThickness="1.5"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  IsHitTestVisible="False" />
+            <TextBox x:Name="PART_EditableTextBox"
+                     Grid.Column="0"
+                     Style="{x:Null}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Foreground="{TemplateBinding Foreground}"
+                     Padding="{TemplateBinding Padding}"
+                     IsReadOnly="{TemplateBinding IsReadOnly}"
+                     Visibility="Collapsed"
+                     VerticalAlignment="Center" />
+            <Popup x:Name="PART_Popup"
+                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                   Placement="Bottom"
+                   PlacementTarget="{Binding ElementName=DropDownToggle}"
+                   AllowsTransparency="True"
+                   Focusable="False"
+                   PopupAnimation="Fade">
+              <Border x:Name="DropDownBorder"
+                      MinWidth="{Binding ActualWidth, ElementName=DropDownToggle}"
+                      MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                      Background="{DynamicResource Crntly.SurfaceRaised}"
+                      BorderBrush="{DynamicResource Crntly.BorderStrong}"
+                      BorderThickness="1"
+                      CornerRadius="{DynamicResource Crntly.ControlRadius}"
+                      Margin="0,3,0,0">
+                <ScrollViewer CanContentScroll="True"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+                  <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                </ScrollViewer>
+              </Border>
+            </Popup>
+          </Grid>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsEditable" Value="True">
+              <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsDropDownOpen" Value="True">
+              <Setter TargetName="DropDownBorder" Property="BorderBrush" Value="{DynamicResource Crntly.Accent}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Opacity" Value="0.4" />
+              <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style TargetType="ComboBox" BasedOn="{StaticResource Crntly.ComboBox}" />
 
   <!-- Compact rectangular switch: desktop-oriented rather than pill-shaped. -->
   <Style x:Key="Crntly.Toggle" TargetType="CheckBox">

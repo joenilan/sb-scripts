@@ -9,7 +9,7 @@ The DLL intentionally has **no Streamer.bot dependency and no tool-specific wind
 - .NET Framework 4.8.1 (`net481`)
 - WPF
 - Assembly: `CRNTLY.StreamerBot.UI.dll`
-- Runtime version: `1.0.0`
+- Runtime version: `1.1.0`
 - Namespace: `Crntly.StreamerBot.UI`
 
 ## Intended install model
@@ -44,7 +44,7 @@ CRNTLY.StreamerBot.UI\bin\Release\net481\CRNTLY.StreamerBot.UI.dll
 
 - `CrntlyUiHost` — dedicated STA/WPF dispatcher so Streamer.bot actions do not block on `ShowDialog()`.
 - `ScriptHost/CrntlyScriptWindowBridge` — generic reflection-friendly host for **script-owned XAML**. It loads a Window, exposes named-control properties/methods, resolves theme resources, refreshes item collections and forwards WPF events without requiring the script to reference WPF types at compile time.
-- `Theme/` — palette, density tokens, reusable buttons, icon buttons, text inputs, toggles, sliders, scrollbars, tooltips, list rows and other shared CRNTLY visual primitives.
+- `Theme/` — palette, density tokens, reusable buttons, cards, icon buttons, text inputs, combo boxes, toggles, sliders, scrollbars, tooltips, list rows and other shared CRNTLY visual primitives.
 
 ## Ownership rule
 
