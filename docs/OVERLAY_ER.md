@@ -1,153 +1,144 @@
-# Overlay(er) v2.2.0
+# Overlay(er) 2.2.1 setup and reference
 
-`overlay-er.cs` is the current **Overlay(er)** release. It modernizes the original WinForms v1.0.0 tool while preserving its core promise: **many overlays through one OBS Browser Source**.
+Overlay(er) combines web pages and local HTML overlays into one compositor page, so OBS needs only one Browser Source. The current script is [overlay-er.cs](../overlay-er.cs). The old v1.0.0 script is archived under [deprecated](../deprecated/README.md) and is not the current version.
 
-The current architecture deliberately keeps the application in the Streamer.bot script and the reusable WPF machinery in one shared DLL.
+## Quick setup
 
-## Versions
+You need:
 
-- Overlay(er): **v2.2.0**
-- CRNTLY.StreamerBot.UI runtime: **v1.0.1**
+- Windows and Streamer.bot with its C# editor.
+- Newtonsoft.Json.dll as a compile-time reference in the Streamer.bot editor.
+- CRNTLY.StreamerBot.UI.dll in the Streamer.bot dlls directory. The current shared runtime is v1.1.0.
+- OBS on the same computer as Streamer.bot.
 
-The management window displays both versions in its footer so a stale pasted script or stale loaded DLL is immediately visible during testing.
+Install the current [CRNTLY.StreamerBot.UI.dll release](https://github.com/joenilan/sb-scripts/releases/latest/download/CRNTLY.StreamerBot.UI.dll) into:
 
-## Goals
+    <Streamer.bot>\dlls\CRNTLY.StreamerBot.UI.dll
 
-- Keep many overlays behind one OBS Browser Source.
-- Keep the Overlay(er) layout and behavior in `overlay-er.cs`, where users expect the tool to live.
-- Use `CRNTLY.StreamerBot.UI.dll` only for reusable WPF hosting, themes and controls.
-- Stop using WinForms controls as backend state.
-- Keep the existing `overlayer/listview.json` data readable and mostly backward-compatible.
-- Isolate local-file routes per overlay.
-- Let local overlays be selected from a native file picker instead of manually constructing `file:///` URLs.
-- Stream local assets instead of allocating entire files in memory.
-- Push compositor changes live while OBS keeps the Browser Source loaded.
-- Let the Streamer.bot action compile even when the shared CRNTLY UI DLL is not installed yet.
-- Optionally auto-start the compositor server when the Overlay(er) runtime starts.
+Restart Streamer.bot after replacing a DLL that it has already loaded. You can also build and deploy the DLL from this repository on Windows by running .\build-ui.ps1; see the [shared UI project README](../CRNTLY.StreamerBot.UI/README.md).
 
-## Runtime layout
+Create one Streamer.bot action:
 
-```text
-Streamer.bot
-  overlay-er.cs
-    |-- Overlay(er) XAML layout + UI behavior
-    |-- local bootstrap / reflection proxy
-    |-- config store
-    |-- CompositeOverlayServer
-    |     |-- localhost:42069/        compositor shell
-    |     |-- localhost:42069/state  current state payload
-    |     |-- localhost:42069/events SSE live updates
-    |     `-- localhost:42070/local/<overlay-id>/... local assets
-    |
-    `-- dlls/CRNTLY.StreamerBot.UI.dll
-          |-- generic CrntlyScriptWindowBridge
-          |-- STA/WPF dispatcher host
-          `-- shared CRNTLY themes + controls
+1. Add one Core → C# → Execute C# Code sub-action. No event trigger or separate Execute C# Method action is needed.
+2. Add Newtonsoft.Json.dll to that C# editor’s references.
+3. Paste the complete current overlay-er.cs source into the editor, compile it, and save the action.
+4. Run the action manually. It opens the Overlay(er) control window. The script loads CRNTLY.StreamerBot.UI.dll dynamically when it starts.
+5. Click Start server in Overlay(er).
+6. In OBS, add one Browser Source and set its URL to http://localhost:42069/. OBS and Streamer.bot must run on the same computer because the server listens on localhost.
 
-OBS
-  ONE Browser Source -> http://localhost:42069/
-```
+The CRNTLY DLL is not a compile-time reference for this script. If it is missing or cannot be loaded, the script shows a startup message with the expected path and writes details to the Streamer.bot log.
 
-The compositor primarily receives changes through SSE. A 5-second `/state` poll remains as a reconciliation fallback. Explicit server shutdown sends a shutdown event and blank state so a loaded OBS Browser Source does not freeze the last rendered overlay.
+## Open, hide, and stop
 
-## Server auto-start
+- Running the action opens or reopens the control window.
+- The window’s close button hides it; it does not stop the compositor server. Run the action again to show the window.
+- Start server makes the compositor available to OBS. Stop server shuts down both local listeners and clears the Browser Source output.
+- Auto start saves a preference to start the compositor when the Overlay(er) runtime is first created. It does not start the Streamer.bot action when Streamer.bot launches. The action must still be run.
+- If you enable Auto start while the current runtime is already running, the saved preference applies when a new Overlay(er) runtime is created. You can always use Start server for the current session.
 
-The server strip includes an **Auto start** toggle. This preference controls the compositor server only; it does **not** auto-run the Streamer.bot action.
+The OBS Browser Source can stay loaded while you edit entries. Updates are sent live; it does not need to be removed and recreated for each change.
 
-When enabled, Overlay(er) remembers the preference in the existing `overlayer/listview.json` configuration and starts the compositor server automatically the next time the Overlay(er) runtime is created. Existing configuration files that do not contain the setting default to manual server start.
+## Create and arrange overlays
 
-The manual **Start server / Stop server** button remains available regardless of the preference.
+1. Click the plus button to add an overlay, then select it in the list.
+2. Enter a name and an absolute source address. Supported schemes are http, https, and file.
+3. For a web overlay, paste its web address. Use Open source to check that the address opens in a normal browser.
+4. For a local overlay, use the folder button to select its HTML entry file. The selected path is saved as a file URI.
+5. Set width and height. Accepted CSS lengths are px, %, vw, and vh; zero is accepted and normalized to 0px.
+6. Set left and top offsets. A bare number means pixels; positions also accept px, %, vw, and vh, including negative values.
+7. Keep the enable checkbox selected to include the overlay in the compositor. Changes autosave after a short delay; the editor shows Saved when they are committed.
+8. Use the list controls to duplicate, move, enable or disable, and delete entries. Enabled items are rendered in list order, with later entries layered above earlier entries.
 
-## Why the layout lives in the script
+The reset controls restore the selected size or position field. Reset layout restores its width, height, left, and top values to their defaults. Editing a value that fails validation displays an error and does not commit that edit.
 
-The DLL is a shared component/runtime library, not an Overlay(er) application assembly.
+## Local HTML files
 
-```text
-CRNTLY.StreamerBot.UI.dll owns:
-  WPF dispatcher lifecycle
-  script-window hosting
-  theme tokens / palettes / density
-  reusable buttons, icon buttons, inputs, toggles
-  sliders, scrollbars, list rows, tooltips
+When a local HTML file is selected, Overlay(er) serves that file and its relative assets through its local asset listener. Relative CSS, JavaScript, image, font, audio, and video paths resolve from the selected file’s directory. The server only maps the selected overlay’s own folder and files beneath it; it does not combine files from separate overlay folders.
 
-Overlay(er) script owns:
-  Overlay(er) window XAML
-  field names and placement
-  editing/autosave behavior
-  reset buttons
-  local-file selection behavior
-  overlay ordering/deletion/duplication
-  persistence
-  compositor/server behavior
-```
+The file picker accepts common HTML, image, and video files, as well as an all-files option. Select an HTML file when you want the page to load related assets from that directory.
 
-This keeps the install model to one common DLL plus one script and lets unrelated CRNTLY tools reuse the same visual system without carrying Overlay(er) classes inside the DLL.
+## Saved configuration
 
-## Local DLL bootstrap
+Overlay(er) reads and writes:
 
-`overlay-er.cs` contains no compile-time CRNTLY or WPF type references. It looks for:
+    <Streamer.bot current working directory>\overlayer\listview.json
 
-```text
-<Streamer.bot>\dlls\CRNTLY.StreamerBot.UI.dll
-```
+The path is based on Environment.CurrentDirectory, so it follows the directory Streamer.bot is using as its current working directory. The file stores overlay entries, their order and enabled state, dimensions and positions, source URLs, and the Auto start preference. Existing v1 configuration files are read by the current script.
 
-and dynamically loads:
+If you need to preserve or move your setup, close or hide the window after edits show Saved, then copy the overlayer directory from the current working directory. For troubleshooting, check the Streamer.bot log for load and save errors.
 
-```text
-Crntly.StreamerBot.UI.ScriptHost.CrntlyScriptWindowBridge
-```
+## Local endpoints
 
-The bridge accepts the script-owned XAML, resolves named controls and theme resources, forwards UI events, and performs WPF work on the shared STA dispatcher.
+Both listeners bind to localhost and are intended for local use:
 
-If the DLL is missing, the action can still compile and run far enough to display a bootstrap dialog explaining where the file was expected and telling the tester to run:
+| Address | Purpose |
+| --- | --- |
+| http://localhost:42069/ | Compositor document used by the OBS Browser Source. |
+| http://localhost:42069/state | Current enabled overlay state as JSON. |
+| http://localhost:42069/events | Live updates to the compositor. |
+| http://localhost:42069/health | Simple health check; returns ok while the main listener is running. |
+| http://localhost:42070/local/... | Internal route used to serve selected local files and their relative assets. Do not add this address as the OBS source. |
 
-```powershell
-.\build-ui.ps1
-```
+If another program already owns either port, server startup can fail. The UI will remain open and the error is written to the Streamer.bot log.
 
-## Local files
+## Manual verification
 
-The URL / LOCAL FILE editor now has a folder button. It opens the native Windows/WPF file picker, accepts common HTML/image/video entry files plus an All files option, and writes the selected path into the URL field as an absolute `file:///...` URI. The normal 500 ms autosave then persists it just like a manually entered URL.
+After installation, run this short check:
 
-A `file:///.../overlay.html` source receives an isolated local route based on its overlay ID. Relative files such as `css/style.css`, `js/app.js`, images, fonts, and media resolve under that overlay's directory without scanning unrelated directories or mixing files from another overlay with the same filename.
+1. Run the action and confirm the window footer identifies Overlay(er) v2.2.1 and shows the loaded CRNTLY UI runtime version.
+2. If you already have entries, confirm they load. Add a temporary web overlay and verify its status changes to Saved.
+3. Start the server and open http://localhost:42069/ in a browser. While it is running, http://localhost:42069/health should return ok.
+4. Add the same address to one OBS Browser Source. Confirm an enabled overlay appears.
+5. Change its size or position and confirm the OBS output updates without refreshing or replacing the source.
+6. Stop the server and confirm the loaded Browser Source clears. Start it again and confirm the source reconnects.
+7. If you use local files, select a small HTML file that references a relative image or stylesheet and check that both the page and asset load.
+8. If using Auto start, enable it, create a fresh script runtime, and confirm the server starts without clicking Start server. The Streamer.bot action itself still needs to be run to create that runtime.
+9. Remove the temporary entry when finished.
 
-Local files are served with a 64 KiB streaming buffer and `FileShare.ReadWrite` so development tools can update assets while OBS is using them.
+## Troubleshooting
 
-## Iframe compatibility
+### The action does not compile
 
-v2 keeps **direct iframe** behavior for remote URLs. Some websites deliberately block framing with CSP `frame-ancestors` or `X-Frame-Options`; this implementation does not pretend those restrictions can be universally bypassed.
+Add Newtonsoft.Json.dll to the Streamer.bot C# editor references. The CRNTLY UI DLL is loaded at runtime and should not be added as a direct reference for this script.
 
-A later compatibility mode can be added behind a per-overlay renderer option, but it should preserve the one-Browser-Source model and be tested against real overlay providers before becoming default behavior.
+### The window says the CRNTLY UI component is missing
 
-## Testing checklist
+Confirm the file is named CRNTLY.StreamerBot.UI.dll and is in the Streamer.bot dlls directory. Install the current release and restart Streamer.bot, then run the action again. If startup still fails, read the full load error in the Streamer.bot log.
 
-1. Pull the latest repo.
-2. Run `build-ui.ps1` and confirm it deploys `CRNTLY.StreamerBot.UI.dll` into Streamer.bot's `dlls` directory.
-3. Restart Streamer.bot after replacing a DLL that was already loaded.
-4. `overlay-er.cs` should only need `Newtonsoft.Json.dll` as its project-specific editor reference.
-5. Paste the current `overlay-er.cs` into the Execute C# Code sub-action and compile it.
-6. Run the action and confirm the script-owned WPF window opens.
-7. Confirm the footer reports `Overlay(er) v2.2.0` and the loaded UI assembly version.
-8. Confirm existing `overlayer/listview.json` entries appear.
-9. Test Name/URL/Width/Height/X/Y editing and 500 ms autosave.
-10. Test the individual Width/Height/X/Y reset buttons and reset-all.
-11. Test duplicate, reorder, delete, the single per-row enable/disable toggle, copy URL, open source and pop-out compositor actions.
-12. Click the folder button, select a local HTML file, confirm the field becomes a `file:///...` URI, and confirm the row changes to LOCAL after autosave.
-13. Confirm a previously selected local file opens its containing directory as the starting location when browsing again.
-14. Enable **Auto start**, restart/recompile the Overlay(er) runtime, and confirm the compositor comes online without pressing Start server.
-15. Disable **Auto start** and confirm a fresh runtime remains offline until Start server is pressed.
-16. Add one OBS Browser Source at `http://localhost:42069/`.
-17. Confirm slider movement previews live without writing every drag frame.
-18. Test remote overlays and a local HTML overlay with relative CSS/JS/image assets.
-19. Stop the server and verify the loaded OBS Browser Source clears rather than freezing stale output.
-20. Start the server again and verify the already-loaded Browser Source reconnects.
-21. Hide/reopen the management window and verify the server can remain owned by the script lifecycle.
-22. Shut down/recompile Streamer.bot and confirm `Dispose()` releases ports 42069/42070.
+### The server does not start or immediately shows offline
 
-## Not yet claimed complete
+Check the Streamer.bot log for the listener error. Confirm ports 42069 and 42070 are available and that local security software is not blocking Streamer.bot from opening local listeners. While running, open the main /health address above to distinguish a listener problem from an OBS source problem.
 
-- automatic download/update from livestreaming.tools
-- compatibility proxy for iframe-hostile sites
-- drag-and-drop ordering
-- provider-specific compatibility testing
-- automated Windows/WPF build CI
+### OBS shows a blank page
+
+Confirm the server badge says SERVER ONLINE and the Browser Source address is exactly http://localhost:42069/. Verify the overlay is enabled and has a valid http, https, or file source. For a remote page, try opening its source address separately to confirm the page itself works.
+
+### A local page loads without its images, scripts, or styles
+
+Use the folder button to select the intended HTML entry file. Confirm the asset paths in that HTML are relative to the selected file’s folder and that the referenced files exist beneath that folder.
+
+### A remote site refuses to appear
+
+Some sites prohibit being displayed inside another page using Content Security Policy frame-ancestors or X-Frame-Options. Overlay(er) preserves direct iframe behavior and cannot make every site permit embedding. Use a source that allows framing.
+
+### The new setting or source does not appear in OBS
+
+Wait for the editor status to report Saved and confirm the overlay is enabled. The compositor pushes changes while running. If the browser has disconnected, check the server badge and reload the Browser Source once to reconnect.
+
+## Runtime design
+
+The current design keeps product behavior in the script and reusable UI infrastructure in the shared DLL:
+
+- overlay-er.cs owns the window layout, validation, autosave, local-file selection, configuration, ordering, and compositor behavior.
+- CRNTLY.StreamerBot.UI.dll owns reusable WPF window hosting, the shared theme and controls, and the generic script bridge.
+- OBS loads one transparent compositor document. That page receives overlay state through server-sent events and polls /state every five seconds as a reconciliation fallback.
+
+This boundary lets other CRNTLY scripts share the same UI infrastructure without importing Overlay(er)-specific code.
+
+## Version and source
+
+- Overlay(er): 2.2.1
+- CRNTLY.StreamerBot.UI runtime: 1.1.0
+- Current script source: [overlay-er.cs](../overlay-er.cs)
+- DLL release: [latest release download](https://github.com/joenilan/sb-scripts/releases/latest/download/CRNTLY.StreamerBot.UI.dll)
+- Repository releases: [GitHub releases](https://github.com/joenilan/sb-scripts/releases)

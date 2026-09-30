@@ -23,7 +23,7 @@ Execute C# Code: <tool-script>.cs
 
 A tool script discovers the DLL dynamically at runtime, so installing a CRNTLY tool does **not** require users to add CRNTLY or WPF assemblies as compile-time references in every Streamer.bot action.
 
-For the current **Overlay(er) v2.0.0** script, `Newtonsoft.Json.dll` remains the only direct editor reference.
+For the current **Overlay(er) v2.2.1** script, `Newtonsoft.Json.dll` remains the only direct editor reference. Mr. Operator v3.2.0 uses `System.Speech.dll`.
 
 ## Build
 

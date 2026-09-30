@@ -1,111 +1,68 @@
 # sb-scripts
 
-C# scripts and reusable UI infrastructure for [Streamer.bot](https://streamer.bot), developed under the **CRNTLY** / [livestreaming.tools](https://livestreaming.tools/) family.
+C# tools and reusable UI infrastructure for [Streamer.bot](https://streamer.bot), developed under the CRNTLY and [livestreaming.tools](https://livestreaming.tools/) brands.
 
-## Scripts
+## Current scripts
 
-| Script | Status | Description |
-| --- | --- | --- |
-| [`overlayer.cs`](overlayer.cs) | v1.0.0 / legacy baseline | Original **Overlay(er)**: combines multiple URLs into one OBS Browser Source with a WinForms control panel. |
-| [`overlay-er.cs`](overlay-er.cs) | **v2.2.1 / current** | Current **Overlay(er)** release: script-owned WPF layout/behavior, shared CRNTLY UI runtime, live compositor state, persisted server auto-start, local-file browser, cleaner local-file routing, streaming I/O, dynamic DLL loading, autosave, live position preview, and Streamer.bot lifecycle cleanup. |
-| [`mroperator.cs`](mroperator.cs) | **v3.2.0 / redesigned** | Compact call desk with configurable Phone emote, Call In reward, or both; one-action Twitch event routing; caller speech controls; and optional word filtering. |
+| Script | Version | Setup guide | Summary |
+| --- | --- | --- | --- |
+| [Overlay(er)](overlay-er.cs) | 2.2.1 | [Setup and reference](docs/OVERLAY_ER.md) | Manage web and local overlays through one OBS Browser Source. |
+| [Mr. Operator](mroperator.cs) | 3.2.0 | [Setup guide](docs/MR_OPERATOR_SETUP.md) | A nine-line call desk with emote, Channel Point reward, or combined caller entry. |
+
+The source file is pasted into a Streamer.bot C# action. Each setup guide explains its references, runtime components, triggers, configuration, use, and troubleshooting.
+
+## Adding or updating a script
+
+Every maintained script needs a dedicated setup guide before it is treated as ready for other people to install. Start from [the setup guide template](docs/SCRIPT_SETUP_TEMPLATE.md) and follow the repository rules in [AGENTS.md](AGENTS.md).
+
+When adding a current script:
+
+1. Add its source at the repository root and give it an explicit version.
+2. Add a complete guide under docs, based on the template. Check every instruction against the source and the actual Streamer.bot action shape.
+3. Add the script and guide to this README, including current version and editor/runtime dependencies.
+4. If it should appear in Zombie.Digital’s script library, check the site’s script catalog and add or update its release, download, and setup links as needed.
+5. If an existing script is retired, move it to deprecated and identify its replacement there. Do not list it as an installable current script.
+
+Keep the guide current whenever configuration, triggers, references, runtime dependencies, storage, ports, or the user workflow changes.
 
 ## CRNTLY Streamer.bot UI
 
-[`CRNTLY.StreamerBot.UI`](CRNTLY.StreamerBot.UI/) is the reusable WPF runtime/component library for CRNTLY Streamer.bot tools. It deliberately does not depend on Streamer.bot types and contains no **Overlay(er)**-specific window. Scripts keep ownership of their layout, `CPH`, platform/OBS integration, persistence and runtime behavior.
+[CRNTLY.StreamerBot.UI](CRNTLY.StreamerBot.UI/) is the shared WPF runtime and component library for CRNTLY Streamer.bot tools. It has no Streamer.bot dependency and contains no tool-specific window. Each script owns its product layout and behavior; the library provides reusable WPF hosting, the shared visual system, controls, and reflection-friendly script bridges.
 
-The shared UI runtime is versioned independently from individual tools. The current runtime is **v1.1.0**; Overlay(er) v2.2.1 displays both its own version and the loaded UI assembly version in the window footer so stale script/DLL combinations are easy to spot. The shared runtime also contains the exact native WPF `ERROR_NOT_ENOUGH_QUOTA` / `HwndTarget` dispatcher failure so a transient CRNTLY window/render-target error cannot become a fatal Streamer.bot thread exception.
+The current runtime is version 1.1.0 and targets .NET Framework 4.8.1. Overlay(er) and Mr. Operator load it at runtime from:
 
-Download the current compiled runtime from the latest GitHub release:
+    <Streamer.bot>\dlls\CRNTLY.StreamerBot.UI.dll
 
-- [CRNTLY.StreamerBot.UI.dll](https://github.com/joenilan/sb-scripts/releases/latest/download/CRNTLY.StreamerBot.UI.dll)
-- [Release notes and previous versions](https://github.com/joenilan/sb-scripts/releases)
+Download the [latest compiled DLL](https://github.com/joenilan/sb-scripts/releases/latest/download/CRNTLY.StreamerBot.UI.dll) or see [all releases](https://github.com/joenilan/sb-scripts/releases). Restart Streamer.bot after replacing a DLL that the process has already loaded.
 
-Place the DLL in `<Streamer.bot>\dlls\`, restart Streamer.bot, then run any CRNTLY script that lists it as a runtime dependency.
+Build on Windows from the repository root:
 
-Build on Windows:
+    .\build-ui.ps1
 
-```powershell
-.\build-ui.ps1
-```
+The build script attempts to find Streamer.bot and deploys the DLL to its dlls directory. If needed, pass the install location:
 
-The build script attempts to find Streamer.bot and deploys the finished DLL to:
+    .\build-ui.ps1 -StreamerBotPath 'C:\path\to\streamer.bot'
 
-```text
-<Streamer.bot>\dlls\CRNTLY.StreamerBot.UI.dll
-```
+Streamer.bot’s current external C# editor guidance targets net481 with WPF enabled, which is also the target used by the shared runtime.
 
-You can provide the install location explicitly when needed:
+## Overlay(er) 2.2.1
 
-```powershell
-.\build-ui.ps1 -StreamerBotPath 'C:\path\to\streamer.bot'
-```
+The current source is [overlay-er.cs](overlay-er.cs). It owns the Overlay(er) window, editing and autosave behavior, settings, local-file picker, compositor server, and OBS-facing behavior. The shared CRNTLY DLL supplies generic WPF hosting, shared controls and styles, and the script bridge.
 
-Streamer.bot's current external-editor guidance targets `net481` with WPF enabled, which is also the target used by this DLL.
+The Streamer.bot C# editor needs Newtonsoft.Json.dll as a compile-time reference. CRNTLY.StreamerBot.UI.dll is loaded dynamically at runtime and does not need to be added as an editor reference. The action has one Execute C# Code sub-action and no event trigger; run it manually to open the window.
 
-## Overlay(er) v2.2.1 bootstrap
+Use the [Overlay(er) setup and reference](docs/OVERLAY_ER.md) for installation, OBS setup, local files, saved settings, ports, and troubleshooting.
 
-`overlay-er.cs` does **not** reference `CRNTLY.StreamerBot.UI.dll` at compile time. The script owns its **Overlay(er)** XAML and UI behavior, then dynamically loads the generic `CrntlyScriptWindowBridge` from the shared DLL for WPF hosting/theme/component support.
+## Mr. Operator 3.2.0
 
-This means the action can compile even when the CRNTLY component is missing. In the current local test phase, running the action without the DLL shows a bootstrap dialog explaining where the component was expected and asks the tester to run `build-ui.ps1`.
+The current source is [mroperator.cs](mroperator.cs). Set MrOperatorBuild.CallEntryMode near the top of the source to PhoneEmote, CallInReward, or Both. Both is the default. The Twitch Chat Message trigger is required in every mode for Hangup and connected-caller speech. Add a Twitch Reward Redemption trigger to the same action when CallInReward or Both is selected. One Execute C# Code sub-action routes both event types; no separate Execute C# Method action is needed.
 
-Later, that same bootstrap point can offer a confirmed download/install from livestreaming.tools without changing the rest of Overlay(er).
+The C# editor needs System.Speech.dll. The CRNTLY UI DLL is a runtime dependency. See the [Mr. Operator setup guide](docs/MR_OPERATOR_SETUP.md) for the full action setup and workflow.
 
-The **Auto start** toggle controls only the compositor server. When enabled, the server starts automatically the next time the Overlay(er) runtime starts. It does not auto-run the Streamer.bot action itself.
+## Deprecated scripts
 
-The **Browse local file** button beside the URL field opens a native Windows file picker and stores the selected file as a `file:///...` URI. v2.2.1 prefers the already-available WinForms common dialog in Streamer.bot and falls back to the WPF dialog when available. The existing isolated local server then serves that entry file and its relative assets through the compositor.
+The original Overlay(er) v1.0.0 source is retained under [deprecated](deprecated/README.md) for historical reference. New installations should use the current Overlay(er) source and guide above.
 
-### overlay-er.cs references
+## General Streamer.bot workflow
 
-The only project-specific reference currently required in the Streamer.bot C# editor is:
-
-- `Newtonsoft.Json.dll`
-
-The bootstrap, clipboard, confirmation and file-picker helpers avoid adding project-specific UI references to the Streamer.bot editor.
-
-See [`docs/OVERLAY_ER.md`](docs/OVERLAY_ER.md) for architecture and the current test checklist.
-
-## Mr. Operator v3.2.0
-
-`mroperator.cs` replaces the legacy WinForms panel with a script-owned WPF call desk and dynamically loads `CrntlyScriptWindowBridge` from `CRNTLY.StreamerBot.UI.dll`. Mr. Operator owns its product layout, caller-line states, and behavior; CRNTLY supplies the shared palette, reusable control templates, icons, scrollbars, tooltips, WPF host, and script bridge. The voice picker uses CRNTLY's shared ComboBox style, added in runtime v1.1.0. The nine-line deck gives each caller one direct action tile, separates waiting and live states, and keeps the connected caller and call timer in a single on-air panel. Its footer shows the script and shared UI versions.
-
-Set `MrOperatorBuild.CallEntryMode` near the top of the source to choose how viewers call:
-
-- `MrOperatorCallEntryMode.PhoneEmote` — accept the **Phone** emote as a standalone chat message.
-- `MrOperatorCallEntryMode.CallInReward` — accept the Twitch Channel Point reward named **Call In**.
-- `MrOperatorCallEntryMode.Both` — accept either method (default).
-
-The active caller can send **Hangup** to end their call; a queued caller can send it to leave the queue. Other viewers cannot end someone else's active call.
-
-Put the Twitch **Chat Message** trigger on one Streamer.bot Action in every mode; it handles emotes, Hangup, and reading active caller messages. Add a **Reward Redemption** trigger to the same action only for `CallInReward` or `Both`. Add one **Execute C# Code** sub-action containing the full script. `Execute()` routes both event types; no separate Execute C# Method actions are needed. Run the action manually once to open the call desk. Click a waiting caller to connect them, or click the active line to end the call. Waiting callers move forward in queue order; the next caller is not connected automatically.
-
-See [`docs/MR_OPERATOR_SETUP.md`](docs/MR_OPERATOR_SETUP.md) for the complete Streamer.bot setup and test sequence.
-
-### mroperator.cs references
-
-- `System.Speech.dll` (voice synthesis)
-- Runtime dependency: `<Streamer.bot>\dlls\CRNTLY.StreamerBot.UI.dll`
-
-The CRNTLY DLL and WPF framework are loaded at runtime; they are not compile-time references in the Streamer.bot C# editor.
-
-## overlayer.cs references
-
-The original v1.0.0 WinForms script still uses:
-
-- `System.Windows.Forms.dll`
-- `System.Drawing.dll`
-- `System.Web.dll`
-- `Newtonsoft.Json.dll`
-
-## Usage
-
-Each root `.cs` script is intended to remain usable as a Streamer.bot **Core > C# > Execute C# Code** sub-action:
-
-1. Create an action in Streamer.bot.
-2. Add an **Execute C# Code** sub-action.
-3. Add the references required by the chosen script.
-4. Paste the script into the editor.
-5. Compile / Save and Compile.
-6. Run the action.
-
-For CRNTLY WPF tools, the intended user-facing install model is simply **one shared DLL in `dlls` + one tool script**.
+For each current script, follow its dedicated setup guide. In general, create the action and triggers that guide specifies, add the required editor references, paste the complete source into its Execute C# Code sub-action, compile, save, and initialize it as directed. Do not assume every script uses the same triggers or runtime dependencies.
