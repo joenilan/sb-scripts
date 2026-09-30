@@ -9,7 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-// Mr. Operator v3.0.0
+// Mr. Operator v3.1.0
 // Streamer.bot editor reference required:
 //   System.Speech.dll
 //
@@ -21,8 +21,34 @@ using System.Threading.Tasks;
 public static class MrOperatorBuild
 {
     public const string ProductName = "Mr. Operator";
-    public const string Version = "3.0.0";
+    public const string Version = "3.1.0";
     public const string RewardName = "Call In";
+    public const string PhoneEmoteName = "Phone";
+    public const string HangUpEmoteName = "Hangup";
+}
+
+public enum MrOperatorChatCommand
+{
+    None,
+    RequestCall,
+    HangUp
+}
+
+public static class MrOperatorChatCommandParser
+{
+    public static MrOperatorChatCommand Parse(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return MrOperatorChatCommand.None;
+
+        var emote = message.Trim();
+        if (string.Equals(emote, MrOperatorBuild.PhoneEmoteName, StringComparison.OrdinalIgnoreCase))
+            return MrOperatorChatCommand.RequestCall;
+        if (string.Equals(emote, MrOperatorBuild.HangUpEmoteName, StringComparison.OrdinalIgnoreCase))
+            return MrOperatorChatCommand.HangUp;
+
+        return MrOperatorChatCommand.None;
+    }
 }
 
 public class CPHInline
@@ -55,15 +81,21 @@ public class CPHInline
                 _runtime = null;
             }
 
-            var rewardId = FindCallInRewardId();
-            if (string.IsNullOrEmpty(rewardId))
-            {
-                CPH.SendMessage("Mr. Operator could not find the Twitch Channel Point reward named '" + MrOperatorBuild.RewardName + "'. Create that reward, then run this action again.", false);
-                return false;
-            }
-
             Action<string> log = message => CPH.LogInfo("[CRNTLY " + MrOperatorBuild.ProductName + "] " + message);
             Action<string> logError = message => CPH.LogError("[CRNTLY " + MrOperatorBuild.ProductName + "] " + message);
+
+            string rewardId = null;
+            try
+            {
+                rewardId = FindCallInRewardId();
+            }
+            catch (Exception ex)
+            {
+                logError("Could not check for the optional Call In reward; Phone emote calls remain available: " + ex);
+            }
+
+            if (string.IsNullOrEmpty(rewardId))
+                log("No Call In reward was found. The Phone and Hangup chat emotes will still work.");
 
             MrOperatorScriptWindowProxy window;
             if (!MrOperatorDependencyBootstrap.TryCreateScriptWindow(log, logError, out window))
@@ -79,7 +111,7 @@ public class CPHInline
                 logError);
 
             _runtime.Start();
-            CPH.SendMessage("Mr. Operator is ready. Open the switchboard when you want to accept calls.", false);
+            CPH.SendMessage("Mr. Operator is ready. Open lines, then send the Phone emote to request a call.", false);
             return true;
         }
         catch (Exception ex)
@@ -110,9 +142,8 @@ public class CPHInline
         if (_runtime == null || _runtime.IsDisposed)
             return false;
 
-        return _runtime.HandleChatMessage(
-            GetArgument("userName"),
-            GetArgument("rawInput"));
+        var message = GetArgument("rawInput", "message");
+        return _runtime.HandleChatMessage(GetArgument("userName"), message);
     }
 
     public void Dispose()
@@ -142,18 +173,23 @@ public class CPHInline
         return null;
     }
 
-    private string GetArgument(string key)
+    private string GetArgument(params string[] keys)
     {
-        try
+        foreach (var key in keys)
         {
-            if (args == null || !args.ContainsKey(key) || args[key] == null)
-                return string.Empty;
-            return Convert.ToString(args[key], CultureInfo.InvariantCulture);
+            try
+            {
+                object value;
+                if (CPH.TryGetArg(key, out value) && value != null)
+                    return Convert.ToString(value, CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                // The alternate name may not exist for this trigger type.
+            }
         }
-        catch
-        {
-            return string.Empty;
-        }
+
+        return string.Empty;
     }
 }
 
@@ -745,12 +781,19 @@ public sealed class MrOperatorRuntime : IDisposable
             desiredState = _linesOpen;
             version = ++_rewardVersion;
             _notice = desiredState
-                ? "Lines are opening. Callers can redeem the Call In reward."
+                ? "Lines are opening. " + JoinInstructionText()
                 : "Lines are closing. The active call can finish.";
         }
 
         Render();
         RequestRewardSync(desiredState, version, true);
+    }
+
+    private string JoinInstructionText()
+    {
+        return string.IsNullOrWhiteSpace(_rewardId)
+            ? "Send the Phone emote by itself in chat to join."
+            : "Send the Phone emote by itself or redeem Call In to join.";
     }
 
     private void RequestRewardSync(bool desiredState, long version, bool announce)
@@ -766,10 +809,13 @@ public sealed class MrOperatorRuntime : IDisposable
                         return;
                 }
 
-                if (desiredState)
-                    _enableReward(_rewardId);
-                else
-                    _disableReward(_rewardId);
+                if (!string.IsNullOrWhiteSpace(_rewardId))
+                {
+                    if (desiredState)
+                        _enableReward(_rewardId);
+                    else
+                        _disableReward(_rewardId);
+                }
 
                 bool stillCurrent;
                 lock (_stateGate)
@@ -777,8 +823,12 @@ public sealed class MrOperatorRuntime : IDisposable
                     stillCurrent = !_disposed && version == _rewardVersion && desiredState == _linesOpen;
                     if (stillCurrent)
                         _notice = desiredState
-                            ? "Call In is enabled. Waiting for callers."
-                            : "Call In is disabled. The active call can finish.";
+                            ? (string.IsNullOrWhiteSpace(_rewardId)
+                                ? "Lines are open. " + JoinInstructionText()
+                                : "Call In is enabled. " + JoinInstructionText())
+                            : (string.IsNullOrWhiteSpace(_rewardId)
+                                ? "Lines are closed. The active call can finish."
+                                : "Call In is disabled. The active call can finish.");
                 }
 
                 if (stillCurrent && announce && _sendMessage != null)
@@ -786,7 +836,7 @@ public sealed class MrOperatorRuntime : IDisposable
                     try
                     {
                         _sendMessage(desiredState
-                            ? "📞 Switchboard is OPEN! Redeem the Call In reward to join."
+                            ? "📞 Switchboard is OPEN! " + JoinInstructionText()
                             : "📞 Switchboard is CLOSED.");
                     }
                     catch (Exception ex)
@@ -808,13 +858,13 @@ public sealed class MrOperatorRuntime : IDisposable
                     {
                         if (desiredState)
                         {
-                            _linesOpen = false;
-                            _rewardVersion++;
-                            _notice = "Could not enable the Call In reward. Check Twitch and Streamer.bot.";
+                            _notice = string.IsNullOrWhiteSpace(_rewardId)
+                                ? "Lines are open. " + JoinInstructionText()
+                                : "Phone calls are open, but Call In could not be enabled. Check Twitch and Streamer.bot.";
                         }
                         else
                         {
-                            _notice = "Could not disable the Call In reward. Check Twitch and Streamer.bot.";
+                            _notice = "Lines are closed, but Call In could not be disabled. Check Twitch and Streamer.bot.";
                         }
                         shouldRender = true;
                     }
@@ -822,10 +872,6 @@ public sealed class MrOperatorRuntime : IDisposable
 
                 if (_logError != null)
                     _logError("Unable to sync Call In reward state: " + ex);
-                if (shouldRender && desiredState)
-                {
-                    try { _disableReward(_rewardId); } catch { }
-                }
                 if (shouldRender)
                     Render();
             }
@@ -842,33 +888,48 @@ public sealed class MrOperatorRuntime : IDisposable
             !string.Equals(rewardName, MrOperatorBuild.RewardName, StringComparison.OrdinalIgnoreCase))
             return false;
 
+        return JoinCallQueue(userName);
+    }
+
+    private bool JoinCallQueue(string userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+            return false;
+
         string response = null;
         bool accepted = false;
         lock (_stateGate)
         {
-            if (_disposed || !_linesOpen)
+            if (_disposed)
                 return false;
 
-            var duplicateIndex = _queuedCallers.FindIndex(
-                caller => string.Equals(caller, userName, StringComparison.OrdinalIgnoreCase));
-            if (duplicateIndex >= 0)
+            if (!_linesOpen)
             {
-                response = "@" + userName + " you're already waiting at position #" + (duplicateIndex + 1) + ".";
-            }
-            else if (string.Equals(_currentCaller, userName, StringComparison.OrdinalIgnoreCase))
-            {
-                response = "@" + userName + " you're already on the line.";
-            }
-            else if (_queuedCallers.Count + (_currentCaller == null ? 0 : 1) >= LineCount)
-            {
-                response = "@" + userName + " the switchboard is full right now. Please try again later.";
+                response = "@" + userName + " the switchboard is closed. Wait for the lines to open before calling.";
             }
             else
             {
-                _queuedCallers.Add(userName);
-                _notice = "@" + userName + " joined the queue.";
-                response = "📞 @" + userName + " joined the queue! Position #" + _queuedCallers.Count + ".";
-                accepted = true;
+                var duplicateIndex = _queuedCallers.FindIndex(
+                    caller => string.Equals(caller, userName, StringComparison.OrdinalIgnoreCase));
+                if (duplicateIndex >= 0)
+                {
+                    response = "@" + userName + " you're already waiting at position #" + (duplicateIndex + 1) + ".";
+                }
+                else if (string.Equals(_currentCaller, userName, StringComparison.OrdinalIgnoreCase))
+                {
+                    response = "@" + userName + " you're already on the line.";
+                }
+                else if (_queuedCallers.Count + (_currentCaller == null ? 0 : 1) >= LineCount)
+                {
+                    response = "@" + userName + " the switchboard is full right now. Please try again later.";
+                }
+                else
+                {
+                    _queuedCallers.Add(userName);
+                    _notice = "@" + userName + " joined the queue.";
+                    response = "📞 @" + userName + " joined the queue! Position #" + _queuedCallers.Count + ".";
+                    accepted = true;
+                }
             }
         }
 
@@ -891,6 +952,12 @@ public sealed class MrOperatorRuntime : IDisposable
     {
         if (string.IsNullOrWhiteSpace(userName) || string.IsNullOrWhiteSpace(message))
             return false;
+
+        var command = MrOperatorChatCommandParser.Parse(message);
+        if (command == MrOperatorChatCommand.RequestCall)
+            return JoinCallQueue(userName);
+        if (command == MrOperatorChatCommand.HangUp)
+            return HandleHangUpEmote(userName);
 
         string caller;
         string selectedVoice;
@@ -926,6 +993,59 @@ public sealed class MrOperatorRuntime : IDisposable
         Speak(spokenMessage, selectedVoice, volume, false);
         if (_log != null)
             _log("Speaking a chat message from the active caller " + caller + ".");
+
+        return true;
+    }
+
+    private bool HandleHangUpEmote(string userName)
+    {
+        string endedCaller = null;
+        TimeSpan callDuration = TimeSpan.Zero;
+        string queueMessage = null;
+
+        lock (_stateGate)
+        {
+            if (_disposed)
+                return false;
+
+            if (string.Equals(_currentCaller, userName, StringComparison.OrdinalIgnoreCase))
+            {
+                endedCaller = _currentCaller;
+                callDuration = DateTime.UtcNow - _callStartTime;
+                _currentCaller = null;
+                _activeLine = 0;
+                _callTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                _notice = "The call with @" + endedCaller + " has ended.";
+            }
+            else
+            {
+                var queueIndex = _queuedCallers.FindIndex(
+                    caller => string.Equals(caller, userName, StringComparison.OrdinalIgnoreCase));
+                if (queueIndex < 0)
+                    return false;
+
+                _queuedCallers.RemoveAt(queueIndex);
+                _notice = "@" + userName + " left the call queue.";
+                queueMessage = "📞 @" + userName + " left the call queue.";
+            }
+        }
+
+        Render();
+        if (endedCaller != null)
+        {
+            AnnounceCallEnded(endedCaller, callDuration);
+            if (_log != null)
+                _log("The active caller " + endedCaller + " ended the call with the Hangup emote.");
+        }
+        else if (queueMessage != null && _sendMessage != null)
+        {
+            try { _sendMessage(queueMessage); }
+            catch (Exception ex)
+            {
+                if (_logError != null)
+                    _logError("Unable to announce a caller leaving the queue: " + ex);
+            }
+        }
 
         return true;
     }
@@ -976,13 +1096,13 @@ public sealed class MrOperatorRuntime : IDisposable
                     _activeLine = line.LineNumber;
                     _callStartTime = DateTime.UtcNow;
                     _callTimer.Change(0, 1000);
-                    _notice = "@" + connectedCaller + " is connected. Their chat messages will be read aloud.";
+                    _notice = "@" + connectedCaller + " is live. Their chat is read aloud; send Hangup or click the active line to end.";
                     startedCall = true;
                 }
                 else
                 {
                     _notice = "Line " + line.LineNumber.ToString("00", CultureInfo.InvariantCulture) +
-                        " is open. Callers join through the Call In reward.";
+                        " is open. " + JoinInstructionText();
                 }
             }
         }
@@ -1011,24 +1131,28 @@ public sealed class MrOperatorRuntime : IDisposable
         }
         else if (endedCall)
         {
-            StopSpeech();
-            var caller = endedCaller;
-            var duration = FormatDuration(callDuration);
-            Task.Run(() =>
-            {
-                try
-                {
-                    if (_sendMessage != null)
-                        _sendMessage("📞 Call ended with @" + caller + " (Duration: " + duration + "). Thanks for calling!");
-                    Speak("Call ended.", null, -1, false);
-                }
-                catch (Exception ex)
-                {
-                    if (_logError != null)
-                        _logError("Unable to announce the call ending: " + ex);
-                }
-            });
+            AnnounceCallEnded(endedCaller, callDuration);
         }
+    }
+
+    private void AnnounceCallEnded(string caller, TimeSpan callDuration)
+    {
+        StopSpeech();
+        var duration = FormatDuration(callDuration);
+        Task.Run(() =>
+        {
+            try
+            {
+                if (_sendMessage != null)
+                    _sendMessage("📞 Call ended with @" + caller + " (Duration: " + duration + "). Thanks for calling!");
+                Speak("Call ended.", null, -1, false);
+            }
+            catch (Exception ex)
+            {
+                if (_logError != null)
+                    _logError("Unable to announce the call ending: " + ex);
+            }
+        });
     }
 
     private void ClosePanel()
@@ -1192,7 +1316,7 @@ public sealed class MrOperatorRuntime : IDisposable
                 : FormatDuration(DateTime.UtcNow - _callStartTime);
             callMeta = currentCaller == null
                 ? (waitingCount == 0 ? "Waiting for the first caller" : "Click a waiting line to connect")
-                : "Connected on Line " + activeLine.ToString("00", CultureInfo.InvariantCulture) + " · click that line to hang up";
+                : "Connected on Line " + activeLine.ToString("00", CultureInfo.InvariantCulture) + " · click or send Hangup to end";
 
             var assigned = new Dictionary<int, MrOperatorLineCard>();
             if (currentCaller != null && activeLine >= 1 && activeLine <= LineCount)
@@ -1262,7 +1386,7 @@ public sealed class MrOperatorRuntime : IDisposable
         }
     }
 
-    private static MrOperatorLineCard CreateLineCard(
+    private MrOperatorLineCard CreateLineCard(
         int lineNumber,
         string caller,
         bool active,
@@ -1282,8 +1406,8 @@ public sealed class MrOperatorRuntime : IDisposable
                 CallerName = "Call on air",
                 Initials = "LIVE",
                 StateLabel = "ACTIVE",
-                Subtitle = "Click to end the call",
-                ActionToolTip = "End the active call",
+                Subtitle = "Click or send Hangup to end",
+                ActionToolTip = "End the active call, or let the caller send Hangup",
                 IsActive = true,
                 IsWaiting = false,
                 IsActionEnabled = true,
@@ -1318,7 +1442,9 @@ public sealed class MrOperatorRuntime : IDisposable
             CallerName = linesOpen ? "Ready for callers" : "Line standing by",
             Initials = string.Empty,
             StateLabel = linesOpen ? "READY" : "STANDBY",
-            Subtitle = linesOpen ? "Redeem Call In to join the queue" : "Open lines to accept callers",
+            Subtitle = linesOpen
+                ? (string.IsNullOrWhiteSpace(_rewardId) ? "Send Phone emote to join" : "Send Phone or redeem Call In")
+                : "Open lines to accept callers",
             IsActive = false,
             IsWaiting = false,
             IsActionEnabled = false,
@@ -1455,18 +1581,22 @@ public sealed class MrOperatorRuntime : IDisposable
             }
         }
 
-        Task.Run(() =>
+        if (!string.IsNullOrWhiteSpace(_rewardId))
         {
-            _rewardSyncGate.Wait();
-            try { _disableReward(_rewardId); }
-            catch (Exception ex)
+            Task.Run(() =>
             {
-                if (_logError != null)
-                    _logError("Unable to disable the Call In reward during shutdown: " + ex);
-            }
-            finally { _rewardSyncGate.Release(); }
-        });
+                _rewardSyncGate.Wait();
+                try { _disableReward(_rewardId); }
+                catch (Exception ex)
+                {
+                    if (_logError != null)
+                        _logError("Unable to disable the Call In reward during shutdown: " + ex);
+                }
+                finally { _rewardSyncGate.Release(); }
+            });
+        }
 
-        _window.Dispose();
+        if (_window != null)
+            _window.Dispose();
     }
 }
